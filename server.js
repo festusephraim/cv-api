@@ -69,7 +69,9 @@ function normaliseReferenceChoice(value) {
   if (
     cleaned === "use ‘references available upon request’" ||
     cleaned === "use 'references available upon request'" ||
-    cleaned === "use references available upon request"
+    cleaned === "use references available upon request" ||
+    cleaned === "references available upon request" ||
+    cleaned === "available"
   ) {
     return "available";
   }
@@ -127,6 +129,158 @@ function normaliseBulletArray(items, max = 4) {
   return clampArray(safeArray(items), max)
     .map((item) => safeString(item))
     .filter(Boolean);
+}
+
+function splitLinesToArray(value, max = 5) {
+  return clampArray(
+    safeString(value)
+      .split(/\r?\n|•|;/)
+      .map((item) => safeString(item))
+      .filter(Boolean),
+    max
+  );
+}
+
+function splitSkills(value) {
+  if (Array.isArray(value)) {
+    return clampArray(
+      value.map((item) => safeString(item)).filter(Boolean),
+      12
+    );
+  }
+
+  return clampArray(
+    safeString(value)
+      .split(",")
+      .map((item) => safeString(item))
+      .filter(Boolean),
+    12
+  );
+}
+
+function buildReferenceDetailsFromEntries(entries) {
+  const cleanedEntries = clampArray(safeArray(entries), 3)
+    .map((item) => ({
+      name: safeString(item?.name),
+      position: safeString(item?.position),
+      organization: safeString(item?.organization),
+      location: safeString(item?.location),
+      email: safeString(item?.email),
+      phone: safeString(item?.phone),
+    }))
+    .filter(
+      (item) =>
+        item.name ||
+        item.position ||
+        item.organization ||
+        item.location ||
+        item.email ||
+        item.phone
+    );
+
+  return cleanedEntries
+    .map((entry) => {
+      const parts = [
+        entry.name,
+        entry.position,
+        entry.organization,
+        entry.location,
+        entry.email ? `Email: ${entry.email}` : "",
+        entry.phone ? `Phone: ${entry.phone}` : "",
+      ].filter(Boolean);
+
+      return parts.join(", ");
+    })
+    .join("\n");
+}
+
+function normalizeIncomingPayload(body) {
+  const basicInfo = body?.basic_information || {};
+  const workExperience = clampArray(safeArray(body?.work_experience), 3);
+  const education = clampArray(safeArray(body?.education), 3);
+  const projects = clampArray(safeArray(body?.projects_research), 3);
+
+  const referencesPreference = normaliseReferenceChoice(
+    body?.references_section_preference
+  );
+
+  const includeReferencesFlag = Boolean(body?.references?.include_references);
+  const referenceEntries = safeArray(body?.references?.reference_entries);
+  const builtReferenceDetails = buildReferenceDetailsFromEntries(referenceEntries);
+
+  let reference_choice = referencesPreference;
+  if (reference_choice === "included" && !builtReferenceDetails) {
+    reference_choice = includeReferencesFlag ? "included" : "available";
+  }
+
+  if (reference_choice === "included" && !builtReferenceDetails && !includeReferencesFlag) {
+    reference_choice = "available";
+  }
+
+  const mappedExperience = workExperience.map((item) => ({
+    title: safeString(item?.job_title),
+    company: safeString(item?.company),
+    location: safeString(item?.location),
+    start: safeString(item?.start_date),
+    end: item?.currently_working_here ? "" : safeString(item?.end_date),
+    role_summary: "",
+    tasks: splitLinesToArray(item?.what_did_you_do_in_this_role, 5),
+  }));
+
+  const mappedEducation = education.map((item) => ({
+    degree: safeString(item?.degree_qualification),
+    school: safeString(item?.school),
+    location: safeString(item?.location),
+    start: safeString(item?.start_date),
+    end: item?.currently_studying_here ? "" : safeString(item?.end_date),
+    edu_detail: safeString(item?.grade_result),
+  }));
+
+  const mappedProjects = projects.map((item) => ({
+    project_title: safeString(item?.project_title),
+    project_description: safeString(item?.project_description),
+    project_tasks: splitLinesToArray(item?.what_did_you_do_in_this_project, 5),
+  }));
+
+  const extra_sections = [];
+  if (safeString(body?.additional_information)) {
+    extra_sections.push({
+      section_title: "Additional Information",
+      section_content: safeString(body.additional_information),
+    });
+  }
+
+  return {
+    document_type: safeString(body?.document_type),
+    document_purpose: safeString(body?.document_purpose),
+
+    full_name: safeString(basicInfo?.full_name),
+    address: safeString(basicInfo?.location),
+    phone: safeString(basicInfo?.phone_number),
+    email: safeString(basicInfo?.email_address),
+    linkedin: safeString(basicInfo?.linkedin_profile),
+    job_description: safeString(basicInfo?.job_description),
+
+    professional_summary: safeString(body?.professional_summary),
+
+    skills: splitSkills(body?.skills),
+
+    experience: mappedExperience,
+    projects: mappedProjects,
+    education: mappedEducation,
+
+    certifications: safeString(body?.certifications_awards)
+      ? safeString(body.certifications_awards)
+          .split(/\r?\n|,/)
+          .map((item) => safeString(item))
+          .filter(Boolean)
+      : [],
+
+    extra_sections,
+
+    reference_choice,
+    reference_details: builtReferenceDetails,
+  };
 }
 
 function cleanExperienceArray(experience) {
@@ -219,20 +373,17 @@ function validateIncomingBody(body) {
     return "Invalid JSON body";
   }
 
-  const name =
-    safeString(body.full_name) ||
-    safeString(body.fullName) ||
-    safeString(body.name);
-
-  const email = safeString(body.email);
-  const phone = safeString(body.phone);
+  const basicInfo = body?.basic_information || {};
+  const name = safeString(basicInfo?.full_name);
+  const email = safeString(basicInfo?.email_address);
+  const phone = safeString(basicInfo?.phone_number);
 
   if (!name) {
-    return "A name field is required";
+    return "basic_information.full_name is required";
   }
 
   if (!email && !phone) {
-    return "At least one contact field is required: email or phone";
+    return "At least one contact field is required: basic_information.email_address or basic_information.phone_number";
   }
 
   return null;
@@ -250,15 +401,15 @@ IMPORTANT CONTEXT:
 - Extract and align important keywords from the job description
 - Do NOT copy the job description directly
 - Naturally integrate relevant keywords into the professional summary, skills, role summaries, project descriptions, and experience tasks
-- Do NOT invent information, qualifications, dates, tools, industries, or achievements not supported by the input
+- Do NOT invent information, qualifications, dates, tools, industries, achievements, or metrics not supported by the input
 
 STRICT RULES:
-- Use clear, simple, professional English
+- Use clear, simple, professional English. Strictly British English
 - No tables, no columns, no graphics
 - ATS-friendly wording only
 - Each experience task must begin with a strong action verb
 - Avoid weak phrases like "Responsible for"
-- Each task should show action, contribution, or outcome where possible
+- Each task should show action, contribution, scope, or outcome where possible
 - Keep professional_summary concise and recruiter-friendly
 - No personal pronouns such as "I", "my", or "me"
 - Ensure dates are consistent in style
@@ -267,6 +418,19 @@ STRICT RULES:
 - Return only the schema fields
 - Do not include markdown
 - Do not include commentary
+
+METRICS AND IMPACT RULE:
+- Use measurable details when they are explicitly stated or clearly supported by the input
+- Preserve real numbers, counts, frequencies, tools, timelines, workloads, team sizes, customer volumes, or output volumes when provided
+- If the input suggests scale or frequency but gives no exact figures, write realistic impact language without inventing numbers
+- Good examples of safe phrasing without fabricated figures include:
+  - "Handled high-volume customer interactions"
+  - "Maintained accurate records across daily operations"
+  - "Supported timely report preparation and documentation"
+  - "Coordinated routine administrative tasks in a fast-paced environment"
+- Do NOT create percentages, revenue figures, growth rates, rankings, time savings, or exact counts unless the user input supports them
+- Do NOT exaggerate achievements
+- Where evidence is limited, prefer truthful contribution-focused wording over artificial quantified claims
 
 REFERENCE RULE:
 - "included" means use reference_details
@@ -491,9 +655,7 @@ app.post("/generate-cv", async (req, res) => {
   try {
     cleanupOldGeneratedFiles();
 
-    const rawInput = req.body;
-
-    const incomingError = validateIncomingBody(rawInput);
+    const incomingError = validateIncomingBody(req.body);
     if (incomingError) {
       return res.status(400).json({
         success: false,
@@ -508,6 +670,7 @@ app.post("/generate-cv", async (req, res) => {
       });
     }
 
+    const rawInput = normalizeIncomingPayload(req.body);
     const prompt = buildPrompt(rawInput);
 
     let completion;
@@ -595,6 +758,8 @@ app.post("/generate-cv", async (req, res) => {
     };
 
     if (NODE_ENV !== "production") {
+      console.log("NORMALIZED INPUT:");
+      console.dir(rawInput, { depth: null });
       console.log("RENDER DATA:");
       console.dir(renderData, { depth: null });
     }
@@ -691,5 +856,7 @@ setInterval(() => {
 app.listen(PORT, () => {
   console.log(`CV API running on ${BASE_URL}`);
   console.log(`Template exists: ${ensureTemplateExists()}`);
-  console.log(`File cleanup: every ${CLEANUP_INTERVAL_MINUTES} minute(s), retention ${FILE_RETENTION_HOURS} hour(s)`);
+  console.log(
+    `File cleanup: every ${CLEANUP_INTERVAL_MINUTES} minute(s), retention ${FILE_RETENTION_HOURS} hour(s)`
+  );
 });
