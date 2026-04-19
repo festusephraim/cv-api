@@ -1,0 +1,695 @@
+require("dotenv").config();
+
+const express = require("express");
+const cors = require("cors");
+const fs = require("fs");
+const path = require("path");
+const crypto = require("crypto");
+const PizZip = require("pizzip");
+const Docxtemplater = require("docxtemplater");
+const { OpenAI } = require("openai");
+
+const app = express();
+app.disable("x-powered-by");
+
+app.use(cors());
+app.use(express.json({ limit: "2mb" }));
+
+const PORT = Number(process.env.PORT || 3001);
+const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
+const NODE_ENV = process.env.NODE_ENV || "development";
+
+const TEMPLATE_PATH = path.join(__dirname, "templates", "cv-template.docx");
+const OUTPUT_DIR = path.join(__dirname, "generated");
+
+/**
+ * Cleanup settings
+ * DELETE files older than this many hours
+ */
+const FILE_RETENTION_HOURS = Number(process.env.FILE_RETENTION_HOURS || 24);
+const CLEANUP_INTERVAL_MINUTES = Number(process.env.CLEANUP_INTERVAL_MINUTES || 60);
+
+if (!fs.existsSync(OUTPUT_DIR)) {
+  fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+}
+
+if (!process.env.OPENAI_API_KEY) {
+  console.error("Missing OPENAI_API_KEY in environment variables.");
+  process.exit(1);
+}
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+/**
+ * ----------------------------------------
+ * HELPERS
+ * ----------------------------------------
+ */
+function safeString(value) {
+  if (value === null || value === undefined) return "";
+  return String(value).trim();
+}
+
+function safeArray(value) {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item) => item !== null && item !== undefined);
+}
+
+function clampArray(arr, max) {
+  return Array.isArray(arr) ? arr.slice(0, max) : [];
+}
+
+function normaliseReferenceChoice(value) {
+  const cleaned = safeString(value).toLowerCase();
+
+  if (cleaned === "include full references in my cv") return "included";
+
+  if (
+    cleaned === "use ‘references available upon request’" ||
+    cleaned === "use 'references available upon request'" ||
+    cleaned === "use references available upon request"
+  ) {
+    return "available";
+  }
+
+  if (cleaned === "none") return "none";
+
+  if (cleaned === "included" || cleaned === "available" || cleaned === "none") {
+    return cleaned;
+  }
+
+  return "available";
+}
+
+function toSingleLine(value) {
+  return safeString(value).replace(/\s+/g, " ");
+}
+
+function buildContactLine(data) {
+  const parts = [
+    safeString(data.address),
+    safeString(data.phone),
+    safeString(data.email),
+    safeString(data.linkedin),
+  ].filter(Boolean);
+
+  return parts.join(" | ");
+}
+
+function buildSkillsLine(skills) {
+  return safeArray(skills)
+    .map((item) => safeString(item))
+    .filter(Boolean)
+    .join(" • ");
+}
+
+function buildReferenceText(data) {
+  switch (data.reference_choice) {
+    case "included":
+      return safeString(data.reference_details);
+    case "available":
+      return "References available upon request";
+    case "none":
+      return "";
+    default:
+      return "References available upon request";
+  }
+}
+
+function endOrPresent(value) {
+  const cleaned = safeString(value);
+  return cleaned || "Present";
+}
+
+function normaliseBulletArray(items, max = 4) {
+  return clampArray(safeArray(items), max)
+    .map((item) => safeString(item))
+    .filter(Boolean);
+}
+
+function cleanExperienceArray(experience) {
+  return clampArray(safeArray(experience), 5)
+    .map((item) => ({
+      title: safeString(item?.title),
+      company: safeString(item?.company),
+      location: safeString(item?.location),
+      start: safeString(item?.start),
+      end: safeString(item?.end),
+      end_or_present: endOrPresent(item?.end),
+      role_summary: safeString(item?.role_summary),
+      tasks: normaliseBulletArray(item?.tasks, 5),
+    }))
+    .filter((item) => item.title || item.company || item.tasks.length);
+}
+
+function cleanProjectsArray(projects) {
+  return clampArray(safeArray(projects), 4)
+    .map((item) => ({
+      project_title: safeString(item?.project_title),
+      project_description: safeString(item?.project_description),
+      project_tasks: normaliseBulletArray(item?.project_tasks, 4),
+    }))
+    .filter(
+      (item) =>
+        item.project_title || item.project_description || item.project_tasks.length
+    );
+}
+
+function cleanEducationArray(education) {
+  return clampArray(safeArray(education), 3)
+    .map((item) => ({
+      degree: safeString(item?.degree),
+      school: safeString(item?.school),
+      location: safeString(item?.location),
+      start: safeString(item?.start),
+      end: safeString(item?.end),
+      end_or_present: endOrPresent(item?.end),
+      edu_detail: safeString(item?.edu_detail),
+    }))
+    .filter((item) => item.degree || item.school);
+}
+
+function cleanCertificationsArray(certifications) {
+  return clampArray(safeArray(certifications), 8)
+    .map((item) => safeString(item))
+    .filter(Boolean);
+}
+
+function cleanExtraSections(extraSections) {
+  return clampArray(safeArray(extraSections), 6)
+    .map((item) => ({
+      section_title: safeString(item?.section_title),
+      section_content: safeString(item?.section_content),
+    }))
+    .filter((item) => item.section_title && item.section_content);
+}
+
+function cleanStructuredData(data) {
+  return {
+    full_name: safeString(data.full_name).toUpperCase(),
+    address: safeString(data.address),
+    phone: safeString(data.phone),
+    email: safeString(data.email),
+    linkedin: safeString(data.linkedin),
+    job_description: safeString(data.job_description),
+    professional_summary: toSingleLine(data.professional_summary),
+
+    skills: clampArray(
+      safeArray(data.skills)
+        .map((item) => safeString(item))
+        .filter(Boolean),
+      8
+    ),
+
+    experience: cleanExperienceArray(data.experience),
+    projects: cleanProjectsArray(data.projects),
+    education: cleanEducationArray(data.education),
+    certifications: cleanCertificationsArray(data.certifications),
+    extra_sections: cleanExtraSections(data.extra_sections),
+
+    reference_choice: normaliseReferenceChoice(data.reference_choice),
+    reference_details: safeString(data.reference_details),
+  };
+}
+
+function validateIncomingBody(body) {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return "Invalid JSON body";
+  }
+
+  const name =
+    safeString(body.full_name) ||
+    safeString(body.fullName) ||
+    safeString(body.name);
+
+  const email = safeString(body.email);
+  const phone = safeString(body.phone);
+
+  if (!name) {
+    return "A name field is required";
+  }
+
+  if (!email && !phone) {
+    return "At least one contact field is required: email or phone";
+  }
+
+  return null;
+}
+
+function buildPrompt(rawInput) {
+  return `
+You are an expert ATS CV writer and CV structuring engine.
+
+Your task is to convert raw user input into a highly professional, ATS-optimised CV structure.
+
+IMPORTANT CONTEXT:
+- This CV may be used for real job applications
+- If a job_description is provided, tailor the CV to it
+- Extract and align important keywords from the job description
+- Do NOT copy the job description directly
+- Naturally integrate relevant keywords into the professional summary, skills, role summaries, project descriptions, and experience tasks
+- Do NOT invent information, qualifications, dates, tools, industries, or achievements not supported by the input
+
+STRICT RULES:
+- Use clear, simple, professional English
+- No tables, no columns, no graphics
+- ATS-friendly wording only
+- Each experience task must begin with a strong action verb
+- Avoid weak phrases like "Responsible for"
+- Each task should show action, contribution, or outcome where possible
+- Keep professional_summary concise and recruiter-friendly
+- No personal pronouns such as "I", "my", or "me"
+- Ensure dates are consistent in style
+- Full name must be uppercase
+- If information is missing, return empty strings or empty arrays
+- Return only the schema fields
+- Do not include markdown
+- Do not include commentary
+
+REFERENCE RULE:
+- "included" means use reference_details
+- "available" means references available upon request
+- "none" means blank reference section
+
+USER INPUT:
+${JSON.stringify(rawInput, null, 2)}
+`.trim();
+}
+
+function ensureTemplateExists() {
+  return fs.existsSync(TEMPLATE_PATH);
+}
+
+function cleanupOldGeneratedFiles() {
+  try {
+    if (!fs.existsSync(OUTPUT_DIR)) return;
+
+    const files = fs.readdirSync(OUTPUT_DIR);
+    const now = Date.now();
+    const maxAgeMs = FILE_RETENTION_HOURS * 60 * 60 * 1000;
+
+    for (const file of files) {
+      const filePath = path.join(OUTPUT_DIR, file);
+
+      try {
+        const stat = fs.statSync(filePath);
+        const ageMs = now - stat.mtimeMs;
+
+        if (stat.isFile() && ageMs > maxAgeMs) {
+          fs.unlinkSync(filePath);
+        }
+      } catch (fileError) {
+        console.error(`Failed to inspect/delete file: ${filePath}`, fileError.message);
+      }
+    }
+  } catch (error) {
+    console.error("Cleanup process failed:", error.message);
+  }
+}
+
+function generateFileName() {
+  const timestamp = Date.now();
+  const random = crypto.randomBytes(4).toString("hex");
+  return `cv-${timestamp}-${random}.docx`;
+}
+
+/**
+ * ----------------------------------------
+ * STRUCTURED OUTPUT SCHEMA
+ * ----------------------------------------
+ */
+const CV_JSON_SCHEMA = {
+  name: "ats_cv_output",
+  strict: true,
+  schema: {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      full_name: { type: "string" },
+      address: { type: "string" },
+      phone: { type: "string" },
+      email: { type: "string" },
+      linkedin: { type: "string" },
+      job_description: { type: "string" },
+      professional_summary: { type: "string" },
+
+      skills: {
+        type: "array",
+        items: { type: "string" },
+      },
+
+      experience: {
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            title: { type: "string" },
+            company: { type: "string" },
+            location: { type: "string" },
+            start: { type: "string" },
+            end: { type: "string" },
+            role_summary: { type: "string" },
+            tasks: {
+              type: "array",
+              items: { type: "string" },
+            },
+          },
+          required: [
+            "title",
+            "company",
+            "location",
+            "start",
+            "end",
+            "role_summary",
+            "tasks",
+          ],
+        },
+      },
+
+      projects: {
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            project_title: { type: "string" },
+            project_description: { type: "string" },
+            project_tasks: {
+              type: "array",
+              items: { type: "string" },
+            },
+          },
+          required: ["project_title", "project_description", "project_tasks"],
+        },
+      },
+
+      education: {
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            degree: { type: "string" },
+            school: { type: "string" },
+            location: { type: "string" },
+            start: { type: "string" },
+            end: { type: "string" },
+            edu_detail: { type: "string" },
+          },
+          required: ["degree", "school", "location", "start", "end", "edu_detail"],
+        },
+      },
+
+      certifications: {
+        type: "array",
+        items: { type: "string" },
+      },
+
+      extra_sections: {
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            section_title: { type: "string" },
+            section_content: { type: "string" },
+          },
+          required: ["section_title", "section_content"],
+        },
+      },
+
+      reference_choice: {
+        type: "string",
+        enum: ["none", "available", "included"],
+      },
+
+      reference_details: { type: "string" },
+    },
+    required: [
+      "full_name",
+      "address",
+      "phone",
+      "email",
+      "linkedin",
+      "job_description",
+      "professional_summary",
+      "skills",
+      "experience",
+      "projects",
+      "education",
+      "certifications",
+      "extra_sections",
+      "reference_choice",
+      "reference_details",
+    ],
+  },
+};
+
+/**
+ * ----------------------------------------
+ * ROUTES
+ * ----------------------------------------
+ */
+
+// Health check
+app.get("/", (req, res) => {
+  return res.status(200).json({
+    success: true,
+    message: "CV API is running",
+    environment: NODE_ENV,
+    template_exists: ensureTemplateExists(),
+  });
+});
+
+// Download route
+app.get("/download/:file", (req, res) => {
+  try {
+    const fileName = path.basename(req.params.file);
+    const filePath = path.join(OUTPUT_DIR, fileName);
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({
+        success: false,
+        error: "File not found",
+      });
+    }
+
+    return res.download(filePath);
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      error: "Download failed",
+    });
+  }
+});
+
+// Main generation route
+app.post("/generate-cv", async (req, res) => {
+  try {
+    cleanupOldGeneratedFiles();
+
+    const rawInput = req.body;
+
+    const incomingError = validateIncomingBody(rawInput);
+    if (incomingError) {
+      return res.status(400).json({
+        success: false,
+        error: incomingError,
+      });
+    }
+
+    if (!ensureTemplateExists()) {
+      return res.status(500).json({
+        success: false,
+        error: "Template file not found: templates/cv-template.docx",
+      });
+    }
+
+    const prompt = buildPrompt(rawInput);
+
+    let completion;
+    try {
+      completion = await openai.chat.completions.create({
+        model: "gpt-4.1-mini",
+        temperature: 0.2,
+        response_format: {
+          type: "json_schema",
+          json_schema: CV_JSON_SCHEMA,
+        },
+        messages: [
+          {
+            role: "developer",
+            content:
+              "Return only valid JSON matching the provided schema. No markdown. No commentary.",
+          },
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+      });
+    } catch (openaiError) {
+      console.error("OpenAI request failed:", openaiError?.message || openaiError);
+
+      const statusCode =
+        typeof openaiError?.status === "number" && openaiError.status >= 400
+          ? 502
+          : 500;
+
+      return res.status(statusCode).json({
+        success: false,
+        error: "AI generation request failed",
+        details: openaiError?.message || "Unknown OpenAI error",
+      });
+    }
+
+    const content = completion.choices?.[0]?.message?.content;
+
+    if (!content) {
+      return res.status(500).json({
+        success: false,
+        error: "Empty AI response",
+      });
+    }
+
+    let parsed;
+    try {
+      parsed = JSON.parse(content);
+    } catch (parseError) {
+      console.error("Structured output parse failure:", content);
+      return res.status(500).json({
+        success: false,
+        error: "AI returned unreadable JSON",
+      });
+    }
+
+    const data = cleanStructuredData(parsed);
+    const referenceText = buildReferenceText(data);
+
+    const renderData = {
+      FULL_NAME: data.full_name || "",
+      CONTACT_LINE: buildContactLine(data) || "",
+      PROFESSIONAL_SUMMARY: data.professional_summary || "",
+      SKILLS_LINE: buildSkillsLine(data.skills) || "",
+
+      HAS_EXPERIENCE: data.experience.length > 0,
+      experience: data.experience,
+
+      HAS_PROJECTS: data.projects.length > 0,
+      projects: data.projects,
+
+      HAS_EDUCATION: data.education.length > 0,
+      education: data.education,
+
+      HAS_CERTIFICATIONS: data.certifications.length > 0,
+      certifications: data.certifications,
+
+      HAS_EXTRA: data.extra_sections.length > 0,
+      extra_sections: data.extra_sections,
+
+      HAS_REFERENCE: Boolean(referenceText),
+      REFERENCE_SECTION: referenceText || "",
+    };
+
+    if (NODE_ENV !== "production") {
+      console.log("RENDER DATA:");
+      console.dir(renderData, { depth: null });
+    }
+
+    let buffer;
+    try {
+      const binaryTemplate = fs.readFileSync(TEMPLATE_PATH, "binary");
+      const zip = new PizZip(binaryTemplate);
+
+      const doc = new Docxtemplater(zip, {
+        paragraphLoop: true,
+        linebreaks: true,
+        nullGetter() {
+          return "";
+        },
+      });
+
+      doc.render(renderData);
+
+      buffer = doc.getZip().generate({
+        type: "nodebuffer",
+        compression: "DEFLATE",
+      });
+    } catch (docError) {
+      console.error("Document render failed:", docError?.message || docError);
+
+      return res.status(500).json({
+        success: false,
+        error: "CV document rendering failed",
+        details: docError?.message || "Template render error",
+      });
+    }
+
+    const fileName = generateFileName();
+    const filePath = path.join(OUTPUT_DIR, fileName);
+
+    try {
+      fs.writeFileSync(filePath, buffer);
+    } catch (writeError) {
+      console.error("Failed to save generated file:", writeError?.message || writeError);
+
+      return res.status(500).json({
+        success: false,
+        error: "Failed to save generated CV file",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "CV generated successfully",
+      file_name: fileName,
+      download_url: `${BASE_URL}/download/${fileName}`,
+      reference_text: referenceText,
+      preview: renderData,
+    });
+  } catch (error) {
+    console.error("CV generation failed:", error);
+
+    return res.status(500).json({
+      success: false,
+      error: "CV generation failed",
+      details: error?.message || "Unknown error",
+    });
+  }
+});
+
+/**
+ * ----------------------------------------
+ * JSON PARSE ERROR HANDLER
+ * ----------------------------------------
+ */
+app.use((err, req, res, next) => {
+  if (err instanceof SyntaxError && err.status === 400 && "body" in err) {
+    return res.status(400).json({
+      success: false,
+      error: "Invalid JSON body",
+    });
+  }
+
+  return next(err);
+});
+
+/**
+ * ----------------------------------------
+ * START SERVER
+ * ----------------------------------------
+ */
+cleanupOldGeneratedFiles();
+
+setInterval(() => {
+  cleanupOldGeneratedFiles();
+}, CLEANUP_INTERVAL_MINUTES * 60 * 1000);
+
+app.listen(PORT, () => {
+  console.log(`CV API running on ${BASE_URL}`);
+  console.log(`Template exists: ${ensureTemplateExists()}`);
+  console.log(`File cleanup: every ${CLEANUP_INTERVAL_MINUTES} minute(s), retention ${FILE_RETENTION_HOURS} hour(s)`);
+});

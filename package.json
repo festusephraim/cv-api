@@ -1,0 +1,31 @@
+{
+  "name": "cv-api",
+  "version": "1.0.0",
+  "description": "ATS-friendly CV generation API using Express, OpenAI, and Docxtemplater",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "cv",
+    "resume",
+    "express",
+    "openai",
+    "docxtemplater"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "docxtemplater": "^3.68.5",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "openai": "^6.34.0",
+    "pizzip": "^3.2.0"
+  }
+}
