@@ -4,7 +4,6 @@ const express = require("express");
 const cors = require("cors");
 const fs = require("fs");
 const path = require("path");
-const crypto = require("crypto");
 const PizZip = require("pizzip");
 const Docxtemplater = require("docxtemplater");
 const { OpenAI } = require("openai");
@@ -196,6 +195,15 @@ function buildReferenceText(referenceChoice, referenceDetails) {
     default:
       return "References available upon request";
   }
+}
+
+function slugifyFileName(value) {
+  return safeString(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
 }
 
 function normalizeIncomingPayload(body) {
@@ -492,10 +500,10 @@ function cleanupOldGeneratedFiles() {
   }
 }
 
-function generateFileName() {
+function generateFileName(fullName) {
+  const safeName = slugifyFileName(fullName) || "cv";
   const timestamp = Date.now();
-  const random = crypto.randomBytes(4).toString("hex");
-  return `cv-${timestamp}-${random}.docx`;
+  return `${safeName}-cv-${timestamp}.docx`;
 }
 
 /**
@@ -755,7 +763,10 @@ app.post("/generate-cv", async (req, res) => {
     parsed.reference_details = rawInput.reference_details;
 
     const data = cleanStructuredData(parsed);
-    const referenceText = buildReferenceText(rawInput.reference_choice, rawInput.reference_details);
+    const referenceText = buildReferenceText(
+      rawInput.reference_choice,
+      rawInput.reference_details
+    );
 
     const renderData = {
       FULL_NAME: data.full_name || "",
@@ -822,7 +833,7 @@ app.post("/generate-cv", async (req, res) => {
       });
     }
 
-    const fileName = generateFileName();
+    const fileName = generateFileName(data.full_name);
     const filePath = path.join(OUTPUT_DIR, fileName);
 
     try {
