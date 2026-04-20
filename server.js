@@ -107,19 +107,6 @@ function buildSkillsLine(skills) {
     .join(" • ");
 }
 
-function buildReferenceText(data) {
-  switch (data.reference_choice) {
-    case "included":
-      return safeString(data.reference_details);
-    case "available":
-      return "References available upon request";
-    case "none":
-      return "";
-    default:
-      return "References available upon request";
-  }
-}
-
 function endOrPresent(value) {
   const cleaned = safeString(value);
   return cleaned || "Present";
@@ -158,8 +145,8 @@ function splitSkills(value) {
   );
 }
 
-function buildReferenceDetailsFromEntries(entries) {
-  const cleanedEntries = clampArray(safeArray(entries), 3)
+function cleanReferenceEntries(entries) {
+  return clampArray(safeArray(entries), 3)
     .map((item) => ({
       name: safeString(item?.name),
       position: safeString(item?.position),
@@ -177,21 +164,38 @@ function buildReferenceDetailsFromEntries(entries) {
         item.email ||
         item.phone
     );
+}
+
+function buildReferenceDetailsFromEntries(entries) {
+  const cleanedEntries = cleanReferenceEntries(entries);
 
   return cleanedEntries
     .map((entry) => {
-      const parts = [
-        entry.name,
-        entry.position,
-        entry.organization,
-        entry.location,
+      const line1 = [entry.name, entry.position].filter(Boolean).join(", ");
+      const line2 = [entry.organization, entry.location].filter(Boolean).join(", ");
+      const line3 = [
         entry.email ? `Email: ${entry.email}` : "",
         entry.phone ? `Phone: ${entry.phone}` : "",
-      ].filter(Boolean);
+      ]
+        .filter(Boolean)
+        .join(", ");
 
-      return parts.join(", ");
+      return [line1, line2, line3].filter(Boolean).join("\n");
     })
-    .join("\n");
+    .join("\n\n");
+}
+
+function buildReferenceText(referenceChoice, referenceDetails) {
+  switch (referenceChoice) {
+    case "included":
+      return safeString(referenceDetails);
+    case "available":
+      return "References available upon request";
+    case "none":
+      return "";
+    default:
+      return "References available upon request";
+  }
 }
 
 function normalizeIncomingPayload(body) {
@@ -205,15 +209,16 @@ function normalizeIncomingPayload(body) {
   );
 
   const includeReferencesFlag = Boolean(body?.references?.include_references);
-  const referenceEntries = safeArray(body?.references?.reference_entries);
+  const referenceEntries = cleanReferenceEntries(body?.references?.reference_entries);
   const builtReferenceDetails = buildReferenceDetailsFromEntries(referenceEntries);
 
   let reference_choice = referencesPreference;
-  if (reference_choice === "included" && !builtReferenceDetails) {
-    reference_choice = includeReferencesFlag ? "included" : "available";
-  }
 
-  if (reference_choice === "included" && !builtReferenceDetails && !includeReferencesFlag) {
+  if (includeReferencesFlag && builtReferenceDetails) {
+    reference_choice = "included";
+  } else if (reference_choice === "none") {
+    reference_choice = "none";
+  } else {
     reference_choice = "available";
   }
 
@@ -239,6 +244,8 @@ function normalizeIncomingPayload(body) {
   const mappedProjects = projects.map((item) => ({
     project_title: safeString(item?.project_title),
     project_description: safeString(item?.project_description),
+    start: safeString(item?.start_date),
+    end: item?.currently_working_on_this_project ? "" : safeString(item?.end_date),
     project_tasks: splitLinesToArray(item?.what_did_you_do_in_this_project, 5),
   }));
 
@@ -280,6 +287,7 @@ function normalizeIncomingPayload(body) {
 
     reference_choice,
     reference_details: builtReferenceDetails,
+    reference_entries: referenceEntries,
   };
 }
 
@@ -303,11 +311,18 @@ function cleanProjectsArray(projects) {
     .map((item) => ({
       project_title: safeString(item?.project_title),
       project_description: safeString(item?.project_description),
+      start: safeString(item?.start),
+      end: safeString(item?.end),
+      end_or_present: endOrPresent(item?.end),
       project_tasks: normaliseBulletArray(item?.project_tasks, 4),
     }))
     .filter(
       (item) =>
-        item.project_title || item.project_description || item.project_tasks.length
+        item.project_title ||
+        item.project_description ||
+        item.start ||
+        item.end ||
+        item.project_tasks.length
     );
 }
 
@@ -413,11 +428,15 @@ STRICT RULES:
 - Keep professional_summary concise and recruiter-friendly
 - No personal pronouns such as "I", "my", or "me"
 - Ensure dates are consistent in style
+- Preserve exact dates as supplied within their correct sections
+- Never transfer dates from projects to work experience or from education to projects
+- If project dates are provided, keep them attached to the project entries
 - Full name must be uppercase
 - If information is missing, return empty strings or empty arrays
 - Return only the schema fields
 - Do not include markdown
 - Do not include commentary
+- Do not rewrite or fabricate reference details
 
 METRICS AND IMPACT RULE:
 - Use measurable details when they are explicitly stated or clearly supported by the input
@@ -541,12 +560,14 @@ const CV_JSON_SCHEMA = {
           properties: {
             project_title: { type: "string" },
             project_description: { type: "string" },
+            start: { type: "string" },
+            end: { type: "string" },
             project_tasks: {
               type: "array",
               items: { type: "string" },
             },
           },
-          required: ["project_title", "project_description", "project_tasks"],
+          required: ["project_title", "project_description", "start", "end", "project_tasks"],
         },
       },
 
@@ -729,8 +750,12 @@ app.post("/generate-cv", async (req, res) => {
       });
     }
 
+    // Preserve user-supplied references exactly from the normalized input.
+    parsed.reference_choice = rawInput.reference_choice;
+    parsed.reference_details = rawInput.reference_details;
+
     const data = cleanStructuredData(parsed);
-    const referenceText = buildReferenceText(data);
+    const referenceText = buildReferenceText(rawInput.reference_choice, rawInput.reference_details);
 
     const renderData = {
       FULL_NAME: data.full_name || "",
@@ -755,6 +780,10 @@ app.post("/generate-cv", async (req, res) => {
 
       HAS_REFERENCE: Boolean(referenceText),
       REFERENCE_SECTION: referenceText || "",
+
+      // Optional future-friendly structured references if you update the template later
+      HAS_REFERENCES_LIST: rawInput.reference_entries.length > 0,
+      references_list: rawInput.reference_entries,
     };
 
     if (NODE_ENV !== "production") {
