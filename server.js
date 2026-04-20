@@ -245,7 +245,7 @@ function normalizeIncomingPayload(body) {
   const extra_sections = [];
   if (safeString(body?.additional_information)) {
     extra_sections.push({
-      section_title: "Additional Information",
+      section_title: "",
       section_content: safeString(body.additional_information),
     });
   }
@@ -337,7 +337,7 @@ function cleanExtraSections(extraSections) {
       section_title: safeString(item?.section_title),
       section_content: safeString(item?.section_content),
     }))
-    .filter((item) => item.section_title && item.section_content);
+    .filter((item) => item.section_content);
 }
 
 function cleanStructuredData(data) {
