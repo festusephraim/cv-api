@@ -459,6 +459,7 @@ Your task is to convert raw user input into a highly professional, ATS-optimised
 
 IMPORTANT CONTEXT:
 - This CV may be used for real job applications
+- Correct spellings for obvious English words, correct capitalization, sentence case, and professional formatting accross all sections, even if the user input is poorly formatted
 - If a job_description is provided, tailor the CV to it
 - Extract and align important keywords from the job description
 - Do NOT copy the job description directly
@@ -466,7 +467,7 @@ IMPORTANT CONTEXT:
 - Do NOT invent information, qualifications, dates, tools, industries, achievements, or metrics not supported by the input
 
 STRICT RULES:
-- Use clear, simple, professional English. Strictly British English
+- Use clear, simple, professional English with appropriate spellings and punctuations. Strictly British English
 - No tables, no columns, no graphics
 - ATS-friendly wording only, maintain correct capitalization, sentence case, and professional formatting accross all sections, even if the user input is poorly formatted
 - Each experience task must begin with a strong action verb
