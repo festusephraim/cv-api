@@ -48,7 +48,17 @@ const openai = new OpenAI({
  */
 function safeString(value) {
   if (value === null || value === undefined) return "";
-  return String(value).trim();
+
+  const cleaned = String(value).trim();
+
+  if (
+    cleaned.toLowerCase() === "null" ||
+    cleaned.toLowerCase() === "undefined"
+  ) {
+    return "";
+  }
+
+  return cleaned;
 }
 
 function safeArray(value) {
