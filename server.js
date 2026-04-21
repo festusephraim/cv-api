@@ -212,21 +212,14 @@ function normalizeIncomingPayload(body) {
   const education = clampArray(safeArray(body?.education), 3);
   const projects = clampArray(safeArray(body?.projects_research), 3);
 
-  const referencesPreference = normaliseReferenceChoice(
-    body?.references_section_preference
-  );
-
-  const includeReferencesFlag = Boolean(body?.references?.include_references);
   const referenceEntries = cleanReferenceEntries(body?.references?.reference_entries);
   const builtReferenceDetails = buildReferenceDetailsFromEntries(referenceEntries);
 
-  let reference_choice = referencesPreference;
+  let reference_choice = normaliseReferenceChoice(
+    body?.references_section_preference
+  );
 
-  if (includeReferencesFlag && builtReferenceDetails) {
-    reference_choice = "included";
-  } else if (reference_choice === "none") {
-    reference_choice = "none";
-  } else {
+  if (reference_choice === "included" && !builtReferenceDetails) {
     reference_choice = "available";
   }
 
@@ -389,6 +382,42 @@ function cleanStructuredData(data) {
     reference_choice: normaliseReferenceChoice(data.reference_choice),
     reference_details: safeString(data.reference_details),
   };
+}
+
+function preserveSectionDatesFromRawInput(parsed, rawInput) {
+  const parsedExperience = safeArray(parsed?.experience);
+  const parsedEducation = safeArray(parsed?.education);
+  const parsedProjects = safeArray(parsed?.projects);
+
+  const rawExperience = safeArray(rawInput?.experience);
+  const rawEducation = safeArray(rawInput?.education);
+  const rawProjects = safeArray(rawInput?.projects);
+
+  parsed.experience = parsedExperience.map((item, index) => ({
+    ...item,
+    start: safeString(rawExperience[index]?.start),
+    end: safeString(rawExperience[index]?.end),
+  }));
+
+  parsed.education = parsedEducation.map((item, index) => ({
+    ...item,
+    start: safeString(rawEducation[index]?.start),
+    end: safeString(rawEducation[index]?.end),
+  }));
+
+  parsed.projects = parsedProjects.map((item, index) => ({
+    ...item,
+    start: safeString(rawProjects[index]?.start),
+    end: safeString(rawProjects[index]?.end),
+  }));
+
+  return parsed;
+}
+
+function preserveReferencesFromRawInput(parsed, rawInput) {
+  parsed.reference_choice = rawInput.reference_choice;
+  parsed.reference_details = rawInput.reference_details;
+  return parsed;
 }
 
 function validateIncomingBody(body) {
@@ -758,9 +787,8 @@ app.post("/generate-cv", async (req, res) => {
       });
     }
 
-    // Preserve user-supplied references exactly from the normalized input.
-    parsed.reference_choice = rawInput.reference_choice;
-    parsed.reference_details = rawInput.reference_details;
+    parsed = preserveSectionDatesFromRawInput(parsed, rawInput);
+    parsed = preserveReferencesFromRawInput(parsed, rawInput);
 
     const data = cleanStructuredData(parsed);
     const referenceText = buildReferenceText(
@@ -792,7 +820,6 @@ app.post("/generate-cv", async (req, res) => {
       HAS_REFERENCE: Boolean(referenceText),
       REFERENCE_SECTION: referenceText || "",
 
-      // Optional future-friendly structured references if you update the template later
       HAS_REFERENCES_LIST: rawInput.reference_entries.length > 0,
       references_list: rawInput.reference_entries,
     };
@@ -891,7 +918,7 @@ cleanupOldGeneratedFiles();
 
 setInterval(() => {
   cleanupOldGeneratedFiles();
-}, CLEANUP_INTERVAL_MINUTES * 60 * 1000);
+}, CLEANUP_INTERVAL_MINUTES * 60 * 60 * 1000);
 
 app.listen(PORT, () => {
   console.log(`CV API running on ${BASE_URL}`);
