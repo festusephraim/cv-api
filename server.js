@@ -468,7 +468,7 @@ IMPORTANT CONTEXT:
 STRICT RULES:
 - Use clear, simple, professional English. Strictly British English
 - No tables, no columns, no graphics
-- ATS-friendly wording only
+- ATS-friendly wording only, maintain correct capitalization, sentence case, and professional formatting accross all sections, even if the user input is poorly formatted
 - Each experience task must begin with a strong action verb
 - Avoid weak phrases like "Responsible for"
 - Each task should show action, contribution, scope, or outcome where possible
