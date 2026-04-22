@@ -687,11 +687,21 @@ const CV_JSON_SCHEMA = {
  * ----------------------------------------
  */
 
-// Health check
+// Root route
 app.get("/", (req, res) => {
   return res.status(200).json({
     success: true,
     message: "CV API is running",
+    environment: NODE_ENV,
+    template_exists: ensureTemplateExists(),
+  });
+});
+
+// Health route
+app.get("/api/health", (req, res) => {
+  return res.status(200).json({
+    success: true,
+    message: "Server is healthy",
     environment: NODE_ENV,
     template_exists: ensureTemplateExists(),
   });
@@ -885,11 +895,15 @@ app.post("/generate-cv", async (req, res) => {
       });
     }
 
+    const protocol = req.headers["x-forwarded-proto"] || req.protocol;
+    const host = req.get("host");
+    const fullBaseUrl = `${protocol}://${host}`;
+
     return res.status(200).json({
       success: true,
       message: "CV generated successfully",
       file_name: fileName,
-      download_url: `${BASE_URL}/download/${fileName}`,
+      download_url: `${fullBaseUrl}/download/${fileName}`,
       reference_text: referenceText,
       preview: renderData,
     });
@@ -929,9 +943,9 @@ cleanupOldGeneratedFiles();
 
 setInterval(() => {
   cleanupOldGeneratedFiles();
-}, CLEANUP_INTERVAL_MINUTES * 60 * 60 * 1000);
+}, CLEANUP_INTERVAL_MINUTES * 60 * 1000);
 
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0", () => {
   console.log(`CV API running on ${BASE_URL}`);
   console.log(`Template exists: ${ensureTemplateExists()}`);
   console.log(
