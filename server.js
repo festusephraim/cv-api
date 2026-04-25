@@ -21,10 +21,6 @@ const NODE_ENV = process.env.NODE_ENV || "development";
 const TEMPLATE_PATH = path.join(__dirname, "templates", "cv-template.docx");
 const OUTPUT_DIR = path.join(__dirname, "generated");
 
-/**
- * Cleanup settings
- * DELETE files older than this many hours
- */
 const FILE_RETENTION_HOURS = Number(process.env.FILE_RETENTION_HOURS || 24);
 const CLEANUP_INTERVAL_MINUTES = Number(process.env.CLEANUP_INTERVAL_MINUTES || 60);
 
@@ -49,7 +45,12 @@ const openai = new OpenAI({
 function safeString(value) {
   if (value === null || value === undefined) return "";
 
-  const cleaned = String(value).trim();
+  const cleaned = String(value)
+    .replace(/\u00A0/g, " ")
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
 
   if (
     cleaned.toLowerCase() === "null" ||
@@ -95,7 +96,10 @@ function normaliseReferenceChoice(value) {
 }
 
 function toSingleLine(value) {
-  return safeString(value).replace(/\s+/g, " ");
+  return safeString(value)
+    .replace(/\s+/g, " ")
+    .replace(/\s+([,.;:!?])/g, "$1")
+    .trim();
 }
 
 function buildContactLine(data) {
@@ -147,7 +151,7 @@ function splitSkills(value) {
 
   return clampArray(
     safeString(value)
-      .split(",")
+      .split(/,|\n|\||•|;/)
       .map((item) => safeString(item))
       .filter(Boolean),
     12
@@ -214,6 +218,21 @@ function slugifyFileName(value) {
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "");
+}
+
+function parseRequestBody(reqBody) {
+  if (typeof reqBody?.raw_submission_json === "string") {
+    try {
+      return JSON.parse(reqBody.raw_submission_json);
+    } catch (error) {
+      const customError = new Error("Invalid saved raw_submission_json");
+      customError.details = error.message;
+      customError.statusCode = 400;
+      throw customError;
+    }
+  }
+
+  return reqBody;
 }
 
 function normalizeIncomingPayload(body) {
@@ -453,27 +472,52 @@ function validateIncomingBody(body) {
 
 function buildPrompt(rawInput) {
   return `
-You are an expert ATS CV writer and CV structuring engine.
+You are a world-class ATS CV writer, senior HR reviewer, recruiter, and CV structuring engine.
 
-Your task is to convert raw user input into a highly professional, ATS-optimised CV structure.
+Your task is to convert raw user input into a highly professional, ATS-optimised CV structure suitable for real job applications.
 
 IMPORTANT CONTEXT:
 - This CV may be used for real job applications
-- Correct spellings for obvious English words, correct capitalization, sentence case, and professional formatting accross all sections, even if the user input is poorly formatted
-- If a job_description is provided, tailor the CV to it
-- Extract and align important keywords from the job description
+- Many users submit rough, poorly written, badly capitalised, misspelled, repetitive, incomplete, or inconsistently formatted input
+- Your job is to clean, refine, and professionalise the writing without changing the truth of the information
+- If a job_description is provided, tailor the CV toward that role
+- Extract important role keywords naturally from the job description
 - Do NOT copy the job description directly
-- Naturally integrate relevant keywords into the professional summary, skills, role summaries, project descriptions, and experience tasks
-- Do NOT invent information, qualifications, dates, tools, industries, achievements, or metrics not supported by the input
+- Do NOT invent qualifications, dates, employers, tools, industries, achievements, certifications, numbers, or metrics not supported by the input
+
+HR AND RECRUITER QUALITY STANDARD:
+- Write like a strong HR professional preparing a candidate for screening
+- Make the candidate sound clear, employable, and credible
+- Prioritise clarity, relevance, evidence, and professionalism
+- Remove weak, casual, vague, or repetitive wording
+- Use action-driven wording that shows contribution, not just duty
+- Keep the candidate’s level realistic; do not inflate entry-level experience into senior-level claims
+- Where the role target is clear, align the summary, skills, experience, and projects to that target
+- Where the input is limited, use modest professional language instead of exaggeration
+
+INPUT CLEAN-UP RULES:
+- Correct obvious spelling mistakes in normal English words
+- Correct poor capitalisation throughout
+- Convert messy text into proper sentence case where appropriate
+- Preserve acronyms and known professional abbreviations in correct form, such as CV, ATS, NGO, UNICEF, WHO, Excel, SQL, DHIS2, NHLMIS, HTML, CSS, API
+- Remove needless repetition across sections
+- Rewrite awkward or poorly written user input into polished professional English
+- Improve grammar, punctuation, spacing, and readability
+- Where user input is fragmentary, convert it into proper professional phrasing without inventing facts
+- Where multiple entries repeat the same idea, keep the strongest and cleanest version
+- Do not produce messy, casual, chat-style, or informal wording
+- Ensure final wording is suitable for a professional CV
 
 STRICT RULES:
-- Use clear, simple, professional English with appropriate spellings and punctuations. Strictly British English
+- Use clear, simple, professional English with correct spelling and punctuation
+- Use British English
 - No tables, no columns, no graphics
-- ATS-friendly wording only, maintain correct capitalization, sentence case, and professional formatting accross all sections, even if the user input is poorly formatted
-- Each experience task must begin with a strong action verb
+- ATS-friendly wording only
+- Maintain correct capitalisation, sentence case, and professional formatting across all sections
+- Each experience task must begin with a strong action verb where appropriate
 - Avoid weak phrases like "Responsible for"
 - Each task should show action, contribution, scope, or outcome where possible
-- Keep professional_summary concise and recruiter-friendly
+- Keep professional_summary concise, polished, and recruiter-friendly
 - No personal pronouns such as "I", "my", or "me"
 - Ensure dates are consistent in style
 - Preserve exact dates as supplied within their correct sections
@@ -486,8 +530,15 @@ STRICT RULES:
 - Do not include commentary
 - Do not rewrite or fabricate reference details
 
+TRUTH AND ACCURACY RULE:
+- Improve language quality without changing factual meaning
+- Never create false claims, false industries, false tools, false achievements, or false qualifications
+- Do not exaggerate responsibilities
+- Do not add seniority that the input does not support
+- Where evidence is limited, use modest but professional wording
+
 METRICS AND IMPACT RULE:
-- Use measurable details when they are explicitly stated or clearly supported by the input
+- Use measurable details only when they are explicitly stated or clearly supported by the input
 - Preserve real numbers, counts, frequencies, tools, timelines, workloads, team sizes, customer volumes, or output volumes when provided
 - If the input suggests scale or frequency but gives no exact figures, write realistic impact language without inventing numbers
 - Good examples of safe phrasing without fabricated figures include:
@@ -497,12 +548,19 @@ METRICS AND IMPACT RULE:
   - "Coordinated routine administrative tasks in a fast-paced environment"
 - Do NOT create percentages, revenue figures, growth rates, rankings, time savings, or exact counts unless the user input supports them
 - Do NOT exaggerate achievements
-- Where evidence is limited, prefer truthful contribution-focused wording over artificial quantified claims
 
 REFERENCE RULE:
 - "included" means use reference_details
 - "available" means references available upon request
 - "none" means blank reference section
+
+FINAL QUALITY CHECK BEFORE RETURNING JSON:
+- Ensure language is polished and professional
+- Ensure capitalisation is clean and consistent
+- Ensure spelling and punctuation are corrected
+- Ensure there is no unnecessary repetition
+- Ensure output will look clean when inserted into a CV template
+- Ensure all content remains faithful to the original user information
 
 USER INPUT:
 ${JSON.stringify(rawInput, null, 2)}
@@ -687,7 +745,6 @@ const CV_JSON_SCHEMA = {
  * ----------------------------------------
  */
 
-// Root route
 app.get("/", (req, res) => {
   return res.status(200).json({
     success: true,
@@ -697,7 +754,6 @@ app.get("/", (req, res) => {
   });
 });
 
-// Health route
 app.get("/api/health", (req, res) => {
   return res.status(200).json({
     success: true,
@@ -707,7 +763,6 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-// Download route
 app.get("/download/:file", (req, res) => {
   try {
     const fileName = path.basename(req.params.file);
@@ -729,12 +784,23 @@ app.get("/download/:file", (req, res) => {
   }
 });
 
-// Main generation route
 app.post("/generate-cv", async (req, res) => {
   try {
     cleanupOldGeneratedFiles();
 
-    const incomingError = validateIncomingBody(req.body);
+    let requestBody;
+
+    try {
+      requestBody = parseRequestBody(req.body);
+    } catch (parseError) {
+      return res.status(parseError.statusCode || 400).json({
+        success: false,
+        error: parseError.message || "Invalid request body",
+        details: parseError.details || "",
+      });
+    }
+
+    const incomingError = validateIncomingBody(requestBody);
     if (incomingError) {
       return res.status(400).json({
         success: false,
@@ -749,7 +815,7 @@ app.post("/generate-cv", async (req, res) => {
       });
     }
 
-    const rawInput = normalizeIncomingPayload(req.body);
+    const rawInput = normalizeIncomingPayload(requestBody);
     const prompt = buildPrompt(rawInput);
 
     let completion;
