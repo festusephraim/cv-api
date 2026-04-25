@@ -252,6 +252,14 @@ function generateUniqueFileName(fullName) {
 }
 
 function parseRequestBody(reqBody) {
+  if (
+    reqBody?.raw_submission_json &&
+    typeof reqBody.raw_submission_json === "object" &&
+    !Array.isArray(reqBody.raw_submission_json)
+  ) {
+    return reqBody.raw_submission_json;
+  }
+
   if (typeof reqBody?.raw_submission_json === "string") {
     try {
       return JSON.parse(reqBody.raw_submission_json);
