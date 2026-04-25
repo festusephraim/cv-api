@@ -220,6 +220,39 @@ function slugifyFileName(value) {
     .replace(/^-|-$/g, "");
 }
 
+function cleanDisplayName(value) {
+  const cleaned = safeString(value)
+    .replace(/[^a-zA-Z0-9\s-]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!cleaned) return "Applicant";
+
+  return cleaned
+    .split(" ")
+    .map((word) => {
+      const lower = word.toLowerCase();
+
+      if (["cv", "ats", "ngo", "api", "sql", "html", "css"].includes(lower)) {
+        return lower.toUpperCase();
+      }
+
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    })
+    .join(" ");
+}
+
+function generateFileNames(fullName) {
+  const displayName = cleanDisplayName(fullName);
+  const savedName = slugifyFileName(displayName) || "applicant";
+  const timestamp = Date.now();
+
+  return {
+    savedFileName: `${savedName}-cv-${timestamp}.docx`,
+    displayFileName: `${displayName} CV.docx`,
+  };
+}
+
 function parseRequestBody(reqBody) {
   if (typeof reqBody?.raw_submission_json === "string") {
     try {
@@ -598,12 +631,6 @@ function cleanupOldGeneratedFiles() {
   }
 }
 
-function generateFileName(fullName) {
-  const safeName = slugifyFileName(fullName) || "cv";
-  const timestamp = Date.now();
-  return `${safeName}-cv-${timestamp}.docx`;
-}
-
 /**
  * ----------------------------------------
  * STRUCTURED OUTPUT SCHEMA
@@ -947,8 +974,8 @@ app.post("/generate-cv", async (req, res) => {
       });
     }
 
-    const fileName = generateFileName(data.full_name);
-    const filePath = path.join(OUTPUT_DIR, fileName);
+    const { savedFileName, displayFileName } = generateFileNames(data.full_name);
+    const filePath = path.join(OUTPUT_DIR, savedFileName);
 
     try {
       fs.writeFileSync(filePath, buffer);
@@ -968,8 +995,11 @@ app.post("/generate-cv", async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "CV generated successfully",
-      file_name: fileName,
-      download_url: `${fullBaseUrl}/download/${fileName}`,
+
+      file_name: savedFileName,
+      display_file_name: displayFileName,
+
+      download_url: `${fullBaseUrl}/download/${savedFileName}`,
       reference_text: referenceText,
       preview: renderData,
     });
