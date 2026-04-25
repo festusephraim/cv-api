@@ -211,46 +211,44 @@ function buildReferenceText(referenceChoice, referenceDetails) {
   }
 }
 
-function slugifyFileName(value) {
-  return safeString(value)
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
-}
-
 function cleanDisplayName(value) {
   const cleaned = safeString(value)
-    .replace(/[^a-zA-Z0-9\s-]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
     .replace(/\s+/g, " ")
     .trim();
 
   if (!cleaned) return "Applicant";
 
+  const upperList = ["cv", "ats", "ngo", "api", "sql", "html", "css"];
+
   return cleaned
     .split(" ")
+    .filter(Boolean)
     .map((word) => {
-      const lower = word.toLowerCase();
-
-      if (["cv", "ats", "ngo", "api", "sql", "html", "css"].includes(lower)) {
-        return lower.toUpperCase();
+      if (upperList.includes(word)) {
+        return word.toUpperCase();
       }
 
-      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+      return word.charAt(0).toUpperCase() + word.slice(1);
     })
     .join(" ");
 }
 
-function generateFileNames(fullName) {
-  const displayName = cleanDisplayName(fullName);
-  const savedName = slugifyFileName(displayName) || "applicant";
-  const timestamp = Date.now();
+function generateUniqueFileName(fullName) {
+  const cleanName = cleanDisplayName(fullName);
+  const ext = ".docx";
+  const baseName = `${cleanName} CV`;
 
-  return {
-    savedFileName: `${savedName}-cv-${timestamp}.docx`,
-    displayFileName: `${displayName} CV.docx`,
-  };
+  let fileName = `${baseName}${ext}`;
+  let counter = 1;
+
+  while (fs.existsSync(path.join(OUTPUT_DIR, fileName))) {
+    fileName = `${baseName} (${counter})${ext}`;
+    counter++;
+  }
+
+  return fileName;
 }
 
 function parseRequestBody(reqBody) {
@@ -792,7 +790,7 @@ app.get("/api/health", (req, res) => {
 
 app.get("/download/:file", (req, res) => {
   try {
-    const fileName = path.basename(req.params.file);
+    const fileName = path.basename(decodeURIComponent(req.params.file));
     const filePath = path.join(OUTPUT_DIR, fileName);
 
     if (!fs.existsSync(filePath)) {
@@ -802,7 +800,7 @@ app.get("/download/:file", (req, res) => {
       });
     }
 
-    return res.download(filePath);
+    return res.download(filePath, fileName);
   } catch (error) {
     return res.status(500).json({
       success: false,
@@ -974,8 +972,8 @@ app.post("/generate-cv", async (req, res) => {
       });
     }
 
-    const { savedFileName, displayFileName } = generateFileNames(data.full_name);
-    const filePath = path.join(OUTPUT_DIR, savedFileName);
+    const fileName = generateUniqueFileName(data.full_name);
+    const filePath = path.join(OUTPUT_DIR, fileName);
 
     try {
       fs.writeFileSync(filePath, buffer);
@@ -995,11 +993,8 @@ app.post("/generate-cv", async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "CV generated successfully",
-
-      file_name: savedFileName,
-      display_file_name: displayFileName,
-
-      download_url: `${fullBaseUrl}/download/${savedFileName}`,
+      file_name: fileName,
+      download_url: `${fullBaseUrl}/download/${encodeURIComponent(fileName)}`,
       reference_text: referenceText,
       preview: renderData,
     });
