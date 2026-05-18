@@ -330,12 +330,39 @@ function normalizeIncomingPayload(body) {
   }));
 
   const extra_sections = [];
-  if (safeString(body?.additional_information)) {
-    extra_sections.push({
-      section_title: "",
-      section_content: safeString(body.additional_information),
-    });
-  }
+
+if (safeString(body?.additional_information)) {
+  const rawInfo = safeString(body.additional_information);
+
+  const formattedAdditionalInfo = rawInfo
+    .split(/\r?\n|;/)
+    .map((item) => safeString(item))
+    .filter(Boolean)
+    .map((item) => {
+      if (
+        item.toLowerCase().startsWith("languages") &&
+        item.includes(":")
+      ) {
+        const [label, values] = item.split(":");
+
+        const cleanedValues = values
+          .split(",")
+          .map((v) => safeString(v))
+          .filter(Boolean)
+          .join(" • ");
+
+        return `${label.trim()}: ${cleanedValues}`;
+      }
+
+      return item;
+    })
+    .join("\n");
+
+  extra_sections.push({
+    section_title: "Additional Information",
+    section_content: formattedAdditionalInfo,
+  });
+}
 
   return {
     document_type: safeString(body?.document_type),
@@ -765,6 +792,29 @@ SKILLS RULE:
 - Avoid overloaded skill sections filled with generic soft skills
 - Keep skills aligned with the candidate’s actual experience and target role
 - Separate technical skills from workplace competencies where appropriate
+
+ADDITIONAL INFORMATION RULE:
+- Additional information must be concise, structured, and CV-appropriate
+- Prefer short category-style entries instead of paragraph writing
+- Suitable content includes:
+  - Languages
+  - Volunteer experience
+  - Professional memberships
+  - Interests
+  - Availability
+  - Work authorisation
+- Format naturally for recruiter readability
+
+Good examples:
+- Languages: English, Hausa
+- Volunteer experience as a community youth organiser
+- Member, Nigerian Institute of Management
+
+Avoid:
+- long explanations
+- storytelling
+- generic personality descriptions
+- repeated information already covered elsewhere in the CV
 
 REFERENCE RULE:
 - "included" means use reference_details
