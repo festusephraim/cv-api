@@ -1293,14 +1293,4 @@ app.use((err, req, res, next) => {
  */
 cleanupOldGeneratedFiles();
 
-setInterval(() => {
-  cleanupOldGeneratedFiles();
-}, CLEANUP_INTERVAL_MINUTES * 60 * 1000);
-
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`CV API running on ${BASE_URL}`);
-  console.log(`Template exists: ${ensureTemplateExists()}`);
-  console.log(
-    `File cleanup: every ${CLEANUP_INTERVAL_MINUTES} minute(s), retention ${FILE_RETENTION_HOURS} hour(s)`
-  );
-});
+module.exports = app;
