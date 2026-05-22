@@ -1293,4 +1293,4 @@ app.use((err, req, res, next) => {
  */
 cleanupOldGeneratedFiles();
 
-module.exports = app;
+export default app;
