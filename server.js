@@ -54,18 +54,6 @@ function safeString(value) {
     .replace(/[ \t]+/g, " ")
     .trim();
 
-  function safeString(value) {
-  if (value === null || value === undefined) return "";
-
-  const cleaned = String(value)
-    .replace(/\u00A0/g, " ")
-    .replace(/[“”]/g, '"')
-    .replace(/[‘’]/g, "'")
-    .replace(/\r\n/g, "\n")
-    .replace(/\r/g, "\n")
-    .replace(/[ \t]+/g, " ")
-    .trim();
-
   if (
     cleaned.toLowerCase() === "null" ||
     cleaned.toLowerCase() === "undefined"
