@@ -54,14 +54,17 @@ function safeString(value) {
     .replace(/[ \t]+/g, " ")
     .trim();
 
-  if (
-    cleaned.toLowerCase() === "null" ||
-    cleaned.toLowerCase() === "undefined"
-  ) {
-    return "";
-  }
+  function safeString(value) {
+  if (value === null || value === undefined) return "";
 
-  return cleaned;
+  const cleaned = String(value)
+    .replace(/\u00A0/g, " ")
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .replace(/[ \t]+/g, " ")
+    .trim();
 
   if (
     cleaned.toLowerCase() === "null" ||
@@ -1293,4 +1296,8 @@ app.use((err, req, res, next) => {
  */
 cleanupOldGeneratedFiles();
 
-export default app;
+app.listen(PORT, () => {
+  console.log(`CV API running on port ${PORT}`);
+});
+
+module.exports = app;
