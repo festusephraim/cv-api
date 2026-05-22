@@ -1097,25 +1097,38 @@ app.post("/generate-cv", async (req, res) => {
 
     let completion;
     try {
-      completion = await openai.chat.completions.create({
-        model: "gpt-4.1-mini",
-        temperature: 0.2,
-        response_format: {
-          type: "json_schema",
-          json_schema: CV_JSON_SCHEMA,
+      completion = await openai.responses.create({
+  model: "gpt-4.1-mini",
+  temperature: 0.2,
+  text: {
+    format: {
+      type: "json_schema",
+      name: CV_JSON_SCHEMA.name,
+      strict: true,
+      schema: CV_JSON_SCHEMA.schema,
+    },
+  },
+  input: [
+    {
+      role: "developer",
+      content: [
+        {
+          type: "input_text",
+          text: "Return only valid JSON matching the provided schema. No markdown. No commentary.",
         },
-        messages: [
-          {
-            role: "developer",
-            content:
-              "Return only valid JSON matching the provided schema. No markdown. No commentary.",
-          },
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
-      });
+      ],
+    },
+    {
+      role: "user",
+      content: [
+        {
+          type: "input_text",
+          text: prompt,
+        },
+      ],
+    },
+  ],
+});
     } catch (openaiError) {
       console.error("OpenAI request failed:", openaiError?.message || openaiError);
 
@@ -1131,7 +1144,7 @@ app.post("/generate-cv", async (req, res) => {
       });
     }
 
-    const content = completion.choices?.[0]?.message?.content;
+    const content = completion.output_text;
 
     if (!content) {
       return res.status(500).json({
