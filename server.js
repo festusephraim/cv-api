@@ -19,12 +19,18 @@ const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 const NODE_ENV = process.env.NODE_ENV || "development";
 
 const TEMPLATE_PATH = path.join(process.cwd(), "templates", "cv-template.docx");
-const OUTPUT_DIR = "/tmp/generated";
+
+const OUTPUT_DIR =
+  NODE_ENV === "production"
+    ? "/tmp/generated"
+    : path.join(process.cwd(), "generated");
 
 const FILE_RETENTION_HOURS = Number(process.env.FILE_RETENTION_HOURS || 24);
 const CLEANUP_INTERVAL_MINUTES = Number(process.env.CLEANUP_INTERVAL_MINUTES || 60);
 
-fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+if (!fs.existsSync(OUTPUT_DIR)) {
+  fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+}
 
 if (!process.env.OPENAI_API_KEY) {
   console.error("Missing OPENAI_API_KEY in environment variables.");
@@ -1294,6 +1300,11 @@ app.use((err, req, res, next) => {
  * ----------------------------------------
  */
 cleanupOldGeneratedFiles();
+
+setInterval(
+  cleanupOldGeneratedFiles,
+  CLEANUP_INTERVAL_MINUTES * 60 * 1000
+);
 
 app.listen(PORT, () => {
   console.log(`CV API running on port ${PORT}`);
