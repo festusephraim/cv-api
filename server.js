@@ -767,7 +767,7 @@ TRUTH PRESERVATION RULE:
 - Keep all content faithful to the user’s original information
 
 PROFESSIONAL SUMMARY RULE:
-- Keep the summary concise, recruiter-friendly, and specific
+- Keep the summary concise, recruiter-friendly, specific and role-targeted based on job type (admin, HR, data etc)
 - Focus on:
   - type of experience
   - operational strengths
