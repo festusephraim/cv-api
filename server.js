@@ -330,28 +330,37 @@ if (safeString(body?.additional_information)) {
   const rawInfo = safeString(body.additional_information);
 
   const formattedAdditionalInfo = rawInfo
-    .split(/\r?\n|;/)
-    .map((item) => safeString(item))
-    .filter(Boolean)
-    .map((item) => {
-      if (
-        item.toLowerCase().startsWith("languages") &&
-        item.includes(":")
-      ) {
-        const [label, values] = item.split(":");
+  .split(/\r?\n|;/)
+  .map((item) => safeString(item))
+  .filter(Boolean)
+  .map((item) => {
+    const lower = item.toLowerCase();
 
-        const cleanedValues = values
-          .split(",")
-          .map((v) => safeString(v))
-          .filter(Boolean)
-          .join(" • ");
+    if (
+      lower.startsWith("languages") &&
+      item.includes(":")
+    ) {
+      const [label, values] = item.split(":");
 
-        return `${label.trim()}: ${cleanedValues}`;
-      }
+      const cleanedValues = values
+        .split(",")
+        .map((v) => safeString(v))
+        .filter(Boolean)
+        .join(" • ");
 
-      return item;
-    })
-    .join("\n");
+      return `${label.trim()}: ${cleanedValues}`;
+    }
+
+    if (
+      lower.includes("volunteer") &&
+      !item.includes(":")
+    ) {
+      return `Volunteer Experience: ${item.replace(/volunteer experience/i, "").trim() || "Available upon request"}`;
+    }
+
+    return item;
+  })
+  .join("\n");
 
   extra_sections.push({
     section_title: "Additional Information",
@@ -802,7 +811,8 @@ ADDITIONAL INFORMATION RULE:
 
 Good examples:
 - Languages: English, Hausa
-- Volunteer experience as a community youth organiser
+- Volunteer Experience: Community youth organiser during local health outreach programmes
+- Volunteer Experience: Assisted with student orientation and event coordination activities
 - Member, Nigerian Institute of Management
 
 Avoid:
