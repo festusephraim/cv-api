@@ -20,7 +20,10 @@ const NODE_ENV = process.env.NODE_ENV || "development";
 
 const TEMPLATE_PATH = path.join(process.cwd(), "templates", "cv-template.docx");
 
-const OUTPUT_DIR = path.join(process.cwd(), "generated");
+const OUTPUT_DIR =
+  NODE_ENV === "production"
+    ? "/tmp/generated"
+    : path.join(process.cwd(), "generated");
 
 const FILE_RETENTION_HOURS = Number(process.env.FILE_RETENTION_HOURS || 24);
 const CLEANUP_INTERVAL_MINUTES = Number(process.env.CLEANUP_INTERVAL_MINUTES || 60);
