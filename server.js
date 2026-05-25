@@ -1081,18 +1081,36 @@ app.get("/api/health", (req, res) => {
 
 app.get("/download/:fileName", (req, res) => {
   try {
-    const fileName = req.params.fileName;
-    const filePath = path.join(OUTPUT_DIR, fileName);
+    const fileName = decodeURIComponent(req.params.fileName);
+    const filePath = path.resolve(OUTPUT_DIR, fileName);
+
+    console.log("DOWNLOAD REQUEST:", fileName);
+    console.log("LOOKING FOR:", filePath);
 
     if (!fs.existsSync(filePath)) {
+      console.error("FILE DOES NOT EXIST:", filePath);
+
       return res.status(404).json({
         success: false,
         error: "File not found",
       });
     }
 
-    return res.download(filePath, fileName);
+    return res.download(filePath, fileName, (err) => {
+      if (err) {
+        console.error("DOWNLOAD ERROR:", err);
+
+        if (!res.headersSent) {
+          return res.status(500).json({
+            success: false,
+            error: "Download failed",
+          });
+        }
+      }
+    });
   } catch (error) {
+    console.error("DOWNLOAD ROUTE ERROR:", error);
+
     return res.status(500).json({
       success: false,
       error: "Download failed",
