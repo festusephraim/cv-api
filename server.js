@@ -23,27 +23,11 @@ const TEMPLATE_PATH = path.resolve(
   "templates",
   "cv-template.docx"
 );
-const OUTPUT_DIR = path.join(process.cwd(), "output");
-
-function ensureOutputDir() {
-  try {
-    if (!fs.existsSync(OUTPUT_DIR)) {
-      fs.mkdirSync(OUTPUT_DIR, { recursive: true });
-    }
-  } catch (err) {
-    console.warn("Output dir not required or not writable in this environment:", err.message);
-  }
-}
-
-const FILE_RETENTION_HOURS = Number(process.env.FILE_RETENTION_HOURS || 24);
-const CLEANUP_INTERVAL_MINUTES = Number(process.env.CLEANUP_INTERVAL_MINUTES || 60);
 
 
 if (!process.env.OPENAI_API_KEY) {
-  console.error("Missing OPENAI_API_KEY in environment variables.");
-  process.exit(1);
+  throw new Error("Missing OPENAI_API_KEY in environment variables.");
 }
-
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
@@ -905,33 +889,6 @@ function ensureTemplateExists() {
   return fs.existsSync(TEMPLATE_PATH);
 }
 
-function cleanupOldGeneratedFiles() {
-  try {
-    if (!fs.existsSync(OUTPUT_DIR)) return;
-
-    const files = fs.readdirSync(OUTPUT_DIR);
-    const now = Date.now();
-    const maxAgeMs = FILE_RETENTION_HOURS * 60 * 60 * 1000;
-
-    for (const file of files) {
-      const filePath = path.join(OUTPUT_DIR, file);
-
-      try {
-        const stat = fs.statSync(filePath);
-        const ageMs = now - stat.mtimeMs;
-
-        if (stat.isFile() && ageMs > maxAgeMs) {
-          fs.unlinkSync(filePath);
-        }
-      } catch (fileError) {
-        console.error(`Failed to inspect/delete file: ${filePath}`, fileError.message);
-      }
-    }
-  } catch (error) {
-    console.error("Cleanup process failed:", error.message);
-  }
-}
-
 /**
  * ----------------------------------------
  * STRUCTURED OUTPUT SCHEMA
@@ -1088,14 +1045,6 @@ app.get("/api/health", (req, res) => {
     message: "Server is healthy",
     environment: NODE_ENV,
     template_exists: ensureTemplateExists(),
-  });
-});
-
-app.get("/download/:fileName", async (req, res) => {
-  return res.status(410).json({
-    success: false,
-    error:
-      "File storage is not persistent on this serverless deployment. Use download_url returned from generation response.",
   });
 });
 
@@ -1340,13 +1289,5 @@ app.use((err, req, res, next) => {
  * START SERVER
  * ----------------------------------------
  */
-if (NODE_ENV === "development") {
-  cleanupOldGeneratedFiles();
-}
-
-
-app.listen(PORT, () => {
-  console.log(`CV API running on port ${PORT}`);
-});
 
 module.exports = app;
