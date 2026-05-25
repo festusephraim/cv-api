@@ -595,6 +595,16 @@ Avoid phrases such as:
 - highly motivated individual
 - dedicated team player
 - proactive professional
+Avoid repetitive bullet openings and weak generic phrasing.
+Use varied and natural action verbs appropriate for the candidate's experience level.
+For internship and student roles, supportive verbs such as:
+- assisted
+- supported
+- participated
+- coordinated
+- prepared
+- documented
+are acceptable when used naturally.
 
 Do not use language that sounds copied from generic resume builders.
 
@@ -614,7 +624,21 @@ Prefer:
 - believable professional phrasing
 
 SPECIFICITY RULE:
-Every experience bullet must communicate at least one meaningful operational detail.
+Experience bullets should be specific, realistic, and relevant to the candidate’s actual level.
+
+For experienced candidates:
+- include operational detail and workplace contribution.
+
+For students, interns, SIWES, and entry-level candidates:
+- focus on practical exposure
+- participation
+- learning support
+- administrative contribution
+- laboratory/technical familiarity
+- communication
+- teamwork
+- reliability
+without forcing artificial complexity.
 
 Good bullets usually explain:
 - what was handled
@@ -799,7 +823,7 @@ PROFESSIONAL SUMMARY RULE:
   - workplace support provided
   - environments worked in
   - practical contribution
-- Avoid generic personality descriptions without evidence
+Avoid exaggerated personality claims, but allow realistic professional qualities suitable for the candidate’s experience level.
 - Avoid empty self-praise
 - Summaries should sound grounded and role-specific
 
