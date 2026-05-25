@@ -24,6 +24,11 @@ const TEMPLATE_PATH = path.resolve(
   "cv-template.docx"
 );
 
+const OUTPUT_DIR = path.resolve(__dirname, "generated-cvs");
+
+if (!fs.existsSync(OUTPUT_DIR)) {
+  fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+}
 
 if (!process.env.OPENAI_API_KEY) {
   throw new Error("Missing OPENAI_API_KEY in environment variables.");
@@ -1235,6 +1240,8 @@ try {
     throw new Error("Vercel Blob 'put' not available");
   }
 
+  fs.writeFileSync(path.join(OUTPUT_DIR, fileName), buffer);
+  
   blob = await put(fileName, buffer, {
     contentType:
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -1278,9 +1285,11 @@ try {
  * ----------------------------------------
  */
 app.use((err, req, res, next) => {
-  return res.status(500).json({
+  console.error(err);
+
+  return res.status(err.statusCode || 500).json({
     success: false,
-    error: "Unexpected server error",
+    error: err.message || "Unexpected server error",
   });
 });
 
