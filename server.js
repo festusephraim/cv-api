@@ -40,7 +40,7 @@ const PORT = Number(process.env.PORT || 3001);
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 const NODE_ENV = process.env.NODE_ENV || "development";
 
-const TEMPLATE_PATH = path.join(process.cwd(), "templates", "cv-template.docx");
+const TEMPLATE_PATH = path.join(process.cwd(), "public", "templates", "cv-template.docx");
 
 
 if (!process.env.OPENAI_API_KEY) {
