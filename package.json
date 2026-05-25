@@ -21,6 +21,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@vercel/blob": "^2.4.0",
     "cors": "^2.8.6",
     "docxtemplater": "^3.68.5",
     "dotenv": "^17.4.2",

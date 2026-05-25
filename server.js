@@ -14,23 +14,24 @@ app.disable("x-powered-by");
 app.use(cors());
 app.use(express.json({ limit: "2mb" }));
 
-const PORT = Number(process.env.PORT || 3001);
-const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
+const PORT = process.env.PORT || 3000;
+
 const NODE_ENV = process.env.NODE_ENV || "development";
 
-const TEMPLATE_PATH = path.join(process.cwd(), "templates", "cv-template.docx");
-
-const OUTPUT_DIR =
-  NODE_ENV === "production"
-    ? "/tmp/generated"
-    : path.join(process.cwd(), "generated");
-
-const FILE_RETENTION_HOURS = Number(process.env.FILE_RETENTION_HOURS || 24);
-const CLEANUP_INTERVAL_MINUTES = Number(process.env.CLEANUP_INTERVAL_MINUTES || 60);
+const TEMPLATE_PATH = path.resolve(
+  __dirname,
+  "templates",
+  "cv-template.docx"
+);
+const OUTPUT_DIR = path.join(process.cwd(), "output");
 
 if (!fs.existsSync(OUTPUT_DIR)) {
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 }
+
+const FILE_RETENTION_HOURS = Number(process.env.FILE_RETENTION_HOURS || 24);
+const CLEANUP_INTERVAL_MINUTES = Number(process.env.CLEANUP_INTERVAL_MINUTES || 60);
+
 
 if (!process.env.OPENAI_API_KEY) {
   console.error("Missing OPENAI_API_KEY in environment variables.");
@@ -525,8 +526,14 @@ function preserveSectionDatesFromRawInput(parsed, rawInput) {
 }
 
 function preserveReferencesFromRawInput(parsed, rawInput) {
-  parsed.reference_choice = rawInput.reference_choice;
-  parsed.reference_details = rawInput.reference_details;
+  if (rawInput?.reference_choice) {
+    parsed.reference_choice = rawInput.reference_choice;
+  }
+
+  if (rawInput?.reference_details) {
+    parsed.reference_details = rawInput.reference_details;
+  }
+
   return parsed;
 }
 
@@ -883,7 +890,6 @@ Before returning the final output, ensure:
 - The document does not sound like a generic AI-generated resume
 - The wording feels believable for the candidate’s actual experience level
 - The final CV clearly communicates what the candidate can realistically contribute in a workplace
-
 USER INPUT:
 ${JSON.stringify(rawInput, null, 2)}
 `.trim();
@@ -1079,134 +1085,103 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-app.get("/download/:fileName", (req, res) => {
-  try {
-    const fileName = req.params.fileName;
-    const filePath = path.join(OUTPUT_DIR, fileName);
-
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).json({
-        success: false,
-        error: "File not found",
-      });
-    }
-
-    return res.download(filePath, fileName);
-  } catch (error) {
-    return res.status(500).json({
-      success: false,
-      error: "Download failed",
-    });
-  }
+app.get("/download/:fileName", async (req, res) => {
+  return res.status(410).json({
+    success: false,
+    error:
+      "File storage is not persistent on this serverless deployment. Use download_url returned from generation response.",
+  });
 });
 
 app.post("/generate-cv", async (req, res) => {
   try {
-    cleanupOldGeneratedFiles();
+    let requestBody = req.body;
+    const rawInput = parseRequestBody(requestBody);
 
-    let requestBody;
-
-    try {
-      requestBody = parseRequestBody(req.body);
-    } catch (parseError) {
-      return res.status(parseError.statusCode || 400).json({
-        success: false,
-        error: parseError.message || "Invalid request body",
-        details: parseError.details || "",
-      });
-    }
-
-    const incomingError = validateIncomingBody(requestBody);
-    if (incomingError) {
+    if (!requestBody || typeof requestBody !== "object") {
       return res.status(400).json({
         success: false,
-        error: incomingError,
+        error: "Invalid request body",
       });
     }
 
     if (!ensureTemplateExists()) {
       return res.status(500).json({
         success: false,
-        error: "Template file not found: templates/cv-template.docx",
+        error: "Template file not found",
       });
     }
 
-    const rawInput = normalizeIncomingPayload(requestBody);
-    const prompt = buildPrompt(rawInput);
+    if (typeof buildPrompt !== "function") {
+  throw new Error("buildPrompt is not defined correctly");
+}
+const prompt = buildPrompt(rawInput);
 
     let completion;
     try {
       completion = await openai.responses.create({
   model: "gpt-4.1-mini",
   temperature: 0.2,
-  text: {
-    format: {
-      type: "json_schema",
-      name: CV_JSON_SCHEMA.name,
-      strict: true,
-      schema: CV_JSON_SCHEMA.schema,
-    },
+  response_format: {
+    type: "json_schema",
+    json_schema: CV_JSON_SCHEMA
   },
   input: [
     {
       role: "developer",
-      content: [
-        {
-          type: "input_text",
-          text: "Return only valid JSON matching the provided schema. No markdown. No commentary.",
-        },
-      ],
+      content: [{ type: "input_text", text: "Return only valid JSON CV structure." }]
     },
     {
       role: "user",
-      content: [
-        {
-          type: "input_text",
-          text: prompt,
-        },
-      ],
-    },
-  ],
+      content: [{ type: "input_text", text: prompt }]
+    }
+  ]
 });
     } catch (openaiError) {
-      console.error("OpenAI request failed:", openaiError?.message || openaiError);
-
-      const statusCode =
-        typeof openaiError?.status === "number" && openaiError.status >= 400
-          ? 502
-          : 500;
-
-      return res.status(statusCode).json({
+      return res.status(502).json({
         success: false,
-        error: "AI generation request failed",
-        details: openaiError?.message || "Unknown OpenAI error",
+        error: "AI request failed",
+        details: openaiError?.message,
       });
     }
 
-    const content = completion.output_text;
+let parsed;
 
-    if (!content) {
-      return res.status(500).json({
-        success: false,
-        error: "Empty AI response",
-      });
-    }
+try {
+  const outputItem = completion.output?.[0];
+  const contentItem = outputItem?.content?.[0];
 
-    let parsed;
-    try {
-      parsed = JSON.parse(content);
-    } catch (parseError) {
-      console.error("Structured output parse failure:", content);
-      return res.status(500).json({
-        success: false,
-        error: "AI returned unreadable JSON",
-      });
-    }
+  const candidate =
+    contentItem?.parsed ??
+    contentItem?.text ??
+    completion.output_text;
+
+  if (!candidate) {
+    throw new Error("Empty AI response");
+  }
+
+  parsed =
+    typeof candidate === "string"
+      ? JSON.parse(candidate)
+      : candidate;
+} catch (error) {
+  return res.status(500).json({
+    success: false,
+    error: "AI returned invalid or unreadable JSON",
+    details: error?.message,
+  });
+}
 
     parsed = preserveSectionDatesFromRawInput(parsed, rawInput);
     parsed = preserveReferencesFromRawInput(parsed, rawInput);
 
-    const data = cleanStructuredData(parsed);
+    if (!parsed || typeof parsed !== "object") {
+  return res.status(500).json({
+    success: false,
+    error: "AI returned empty or invalid structured response",
+  });
+}
+const data = cleanStructuredData(parsed);
     const referenceText = buildReferenceText(
       rawInput.reference_choice,
       rawInput.reference_details
@@ -1236,9 +1211,11 @@ app.post("/generate-cv", async (req, res) => {
       HAS_REFERENCE: Boolean(referenceText),
       REFERENCE_SECTION: referenceText || "",
 
-      HAS_REFERENCES_LIST: rawInput.reference_entries.length > 0,
-      references_list: rawInput.reference_entries,
+      HAS_REFERENCES_LIST: Array.isArray(rawInput?.reference_entries) && rawInput.reference_entries.length > 0,
+      references_list: cleanReferenceEntries(rawInput.reference_entries),
     };
+    
+    const fileName = generateUniqueFileName(data.full_name);
 
     if (NODE_ENV !== "production") {
       console.log("NORMALIZED INPUT:");
@@ -1260,7 +1237,16 @@ app.post("/generate-cv", async (req, res) => {
         },
       });
 
-      doc.render(renderData);
+      try {
+  doc.render(renderData);
+} catch (err) {
+  console.error("Template render error:", err);
+
+  return res.status(500).json({
+    success: false,
+    error: "Template rendering failed",
+  });
+}
 
       buffer = doc.getZip().generate({
         type: "nodebuffer",
@@ -1276,19 +1262,28 @@ app.post("/generate-cv", async (req, res) => {
       });
     }
 
-    const fileName = generateUniqueFileName(data.full_name);
-    const filePath = path.join(OUTPUT_DIR, fileName);
+    let blob;
 
-    try {
-      fs.writeFileSync(filePath, buffer);
-    } catch (writeError) {
-      console.error("Failed to save generated file:", writeError?.message || writeError);
+try {
+  const { put } = require("@vercel/blob");
 
-      return res.status(500).json({
-        success: false,
-        error: "Failed to save generated CV file",
-      });
-    }
+  if (!put) {
+    throw new Error("Vercel Blob 'put' not available");
+  }
+
+  blob = await put(fileName, buffer, {
+    contentType:
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    access: "public",
+  });
+} catch (writeError) {
+  console.error("Failed to save generated file:", writeError?.message || writeError);
+
+  return res.status(500).json({
+    success: false,
+    error: "Failed to save generated CV file",
+  });
+}
 
     const protocol = req.headers["x-forwarded-proto"] || req.protocol;
     const host = req.get("host");
@@ -1298,12 +1293,12 @@ app.post("/generate-cv", async (req, res) => {
       success: true,
       message: "CV generated successfully",
       file_name: fileName,
-      download_url: `${fullBaseUrl}/download/${encodeURIComponent(fileName)}`,
+      download_url: blob.url,
       reference_text: referenceText,
       preview: renderData,
     });
   } catch (error) {
-    console.error("CV generation failed:", error);
+    console.error("CV generation failed at /generate-cv:", error);
 
     return res.status(500).json({
       success: false,
@@ -1319,14 +1314,10 @@ app.post("/generate-cv", async (req, res) => {
  * ----------------------------------------
  */
 app.use((err, req, res, next) => {
-  if (err instanceof SyntaxError && err.status === 400 && "body" in err) {
-    return res.status(400).json({
-      success: false,
-      error: "Invalid JSON body",
-    });
-  }
-
-  return next(err);
+  return res.status(500).json({
+    success: false,
+    error: "Unexpected server error",
+  });
 });
 
 /**
@@ -1334,12 +1325,10 @@ app.use((err, req, res, next) => {
  * START SERVER
  * ----------------------------------------
  */
-cleanupOldGeneratedFiles();
+if (NODE_ENV === "development") {
+  cleanupOldGeneratedFiles();
+}
 
-setInterval(
-  cleanupOldGeneratedFiles,
-  CLEANUP_INTERVAL_MINUTES * 60 * 1000
-);
 
 app.listen(PORT, () => {
   console.log(`CV API running on port ${PORT}`);
