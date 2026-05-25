@@ -1128,18 +1128,24 @@ const prompt = buildPrompt(rawInput);
       completion = await openai.responses.create({
   model: "gpt-4.1-mini",
   temperature: 0.2,
-  response_format: {
-    type: "json_schema",
-    json_schema: CV_JSON_SCHEMA
+  text: {
+    format: {
+      type: "json_schema",
+      json_schema: CV_JSON_SCHEMA
+    }
   },
   input: [
     {
       role: "developer",
-      content: [{ type: "input_text", text: "Return only valid JSON CV structure." }]
+      content: [
+        { type: "input_text", text: "Return only valid JSON CV structure." }
+      ]
     },
     {
       role: "user",
-      content: [{ type: "input_text", text: prompt }]
+      content: [
+        { type: "input_text", text: prompt }
+      ]
     }
   ]
 });
