@@ -11,6 +11,14 @@ const { OpenAI } = require("openai");
 const app = express();
 app.disable("x-powered-by");
 
+process.on("uncaughtException", (err) => {
+  console.error("UNCAUGHT EXCEPTION:", err);
+});
+
+process.on("unhandledRejection", (reason) => {
+  console.error("UNHANDLED REJECTION:", reason);
+});
+
 app.use(cors());
 app.use(express.json({ limit: "2mb" }));
 
