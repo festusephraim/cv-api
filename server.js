@@ -25,8 +25,14 @@ const TEMPLATE_PATH = path.resolve(
 );
 const OUTPUT_DIR = path.join(process.cwd(), "output");
 
-if (!fs.existsSync(OUTPUT_DIR)) {
-  fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+function ensureOutputDir() {
+  try {
+    if (!fs.existsSync(OUTPUT_DIR)) {
+      fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+    }
+  } catch (err) {
+    console.warn("Output dir not required or not writable in this environment:", err.message);
+  }
 }
 
 const FILE_RETENTION_HOURS = Number(process.env.FILE_RETENTION_HOURS || 24);
