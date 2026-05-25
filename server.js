@@ -14,25 +14,29 @@ app.disable("x-powered-by");
 app.use(cors());
 app.use(express.json({ limit: "2mb" }));
 
-const PORT = process.env.PORT || 3000;
-
+const PORT = Number(process.env.PORT || 3001);
+const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 const NODE_ENV = process.env.NODE_ENV || "development";
 
-const TEMPLATE_PATH = path.resolve(
-  __dirname,
-  "templates",
-  "cv-template.docx"
-);
+const TEMPLATE_PATH = path.join(process.cwd(), "templates", "cv-template.docx");
 
-const OUTPUT_DIR = path.resolve(__dirname, "generated-cvs");
+const OUTPUT_DIR =
+  NODE_ENV === "production"
+    ? "/tmp/generated"
+    : path.join(process.cwd(), "generated");
+
+const FILE_RETENTION_HOURS = Number(process.env.FILE_RETENTION_HOURS || 24);
+const CLEANUP_INTERVAL_MINUTES = Number(process.env.CLEANUP_INTERVAL_MINUTES || 60);
 
 if (!fs.existsSync(OUTPUT_DIR)) {
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 }
 
 if (!process.env.OPENAI_API_KEY) {
-  throw new Error("Missing OPENAI_API_KEY in environment variables.");
+  console.error("Missing OPENAI_API_KEY in environment variables.");
+  process.exit(1);
 }
+
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
@@ -521,14 +525,8 @@ function preserveSectionDatesFromRawInput(parsed, rawInput) {
 }
 
 function preserveReferencesFromRawInput(parsed, rawInput) {
-  if (rawInput?.reference_choice) {
-    parsed.reference_choice = rawInput.reference_choice;
-  }
-
-  if (rawInput?.reference_details) {
-    parsed.reference_details = rawInput.reference_details;
-  }
-
+  parsed.reference_choice = rawInput.reference_choice;
+  parsed.reference_details = rawInput.reference_details;
   return parsed;
 }
 
@@ -885,6 +883,7 @@ Before returning the final output, ensure:
 - The document does not sound like a generic AI-generated resume
 - The wording feels believable for the candidate’s actual experience level
 - The final CV clearly communicates what the candidate can realistically contribute in a workplace
+
 USER INPUT:
 ${JSON.stringify(rawInput, null, 2)}
 `.trim();
@@ -892,6 +891,33 @@ ${JSON.stringify(rawInput, null, 2)}
 
 function ensureTemplateExists() {
   return fs.existsSync(TEMPLATE_PATH);
+}
+
+function cleanupOldGeneratedFiles() {
+  try {
+    if (!fs.existsSync(OUTPUT_DIR)) return;
+
+    const files = fs.readdirSync(OUTPUT_DIR);
+    const now = Date.now();
+    const maxAgeMs = FILE_RETENTION_HOURS * 60 * 60 * 1000;
+
+    for (const file of files) {
+      const filePath = path.join(OUTPUT_DIR, file);
+
+      try {
+        const stat = fs.statSync(filePath);
+        const ageMs = now - stat.mtimeMs;
+
+        if (stat.isFile() && ageMs > maxAgeMs) {
+          fs.unlinkSync(filePath);
+        }
+      } catch (fileError) {
+        console.error(`Failed to inspect/delete file: ${filePath}`, fileError.message);
+      }
+    }
+  } catch (error) {
+    console.error("Cleanup process failed:", error.message);
+  }
 }
 
 /**
@@ -1053,104 +1079,134 @@ app.get("/api/health", (req, res) => {
   });
 });
 
+app.get("/download/:fileName", (req, res) => {
+  try {
+    const fileName = req.params.fileName;
+    const filePath = path.join(OUTPUT_DIR, fileName);
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({
+        success: false,
+        error: "File not found",
+      });
+    }
+
+    return res.download(filePath, fileName);
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      error: "Download failed",
+    });
+  }
+});
+
 app.post("/generate-cv", async (req, res) => {
   try {
-    let requestBody = req.body;
-    const rawInput = parseRequestBody(requestBody);
+    cleanupOldGeneratedFiles();
 
-    if (!requestBody || typeof requestBody !== "object") {
+    let requestBody;
+
+    try {
+      requestBody = parseRequestBody(req.body);
+    } catch (parseError) {
+      return res.status(parseError.statusCode || 400).json({
+        success: false,
+        error: parseError.message || "Invalid request body",
+        details: parseError.details || "",
+      });
+    }
+
+    const incomingError = validateIncomingBody(requestBody);
+    if (incomingError) {
       return res.status(400).json({
         success: false,
-        error: "Invalid request body",
+        error: incomingError,
       });
     }
 
     if (!ensureTemplateExists()) {
       return res.status(500).json({
         success: false,
-        error: "Template file not found",
+        error: "Template file not found: templates/cv-template.docx",
       });
     }
 
-    if (typeof buildPrompt !== "function") {
-  throw new Error("buildPrompt is not defined correctly");
-}
-const prompt = buildPrompt(rawInput);
+    const rawInput = normalizeIncomingPayload(requestBody);
+    const prompt = buildPrompt(rawInput);
 
     let completion;
     try {
-  completion = await openai.responses.create({
+      completion = await openai.responses.create({
   model: "gpt-4.1-mini",
   temperature: 0.2,
-
   text: {
     format: {
       type: "json_schema",
-      name: "ats_cv_output",
-      schema: CV_JSON_SCHEMA.schema
-    }
+      name: CV_JSON_SCHEMA.name,
+      strict: true,
+      schema: CV_JSON_SCHEMA.schema,
+    },
   },
-
   input: [
     {
       role: "developer",
       content: [
-        { type: "input_text", text: "Return only valid JSON CV structure." }
-      ]
+        {
+          type: "input_text",
+          text: "Return only valid JSON matching the provided schema. No markdown. No commentary.",
+        },
+      ],
     },
     {
       role: "user",
       content: [
-        { type: "input_text", text: prompt }
-      ]
-    }
-  ]
+        {
+          type: "input_text",
+          text: prompt,
+        },
+      ],
+    },
+  ],
 });
     } catch (openaiError) {
-      return res.status(502).json({
+      console.error("OpenAI request failed:", openaiError?.message || openaiError);
+
+      const statusCode =
+        typeof openaiError?.status === "number" && openaiError.status >= 400
+          ? 502
+          : 500;
+
+      return res.status(statusCode).json({
         success: false,
-        error: "AI request failed",
-        details: openaiError?.message,
+        error: "AI generation request failed",
+        details: openaiError?.message || "Unknown OpenAI error",
       });
     }
 
-let parsed;
+    const content = completion.output_text;
 
-try {
-  const outputItem = completion.output?.[0];
-  const contentItem = outputItem?.content?.[0];
+    if (!content) {
+      return res.status(500).json({
+        success: false,
+        error: "Empty AI response",
+      });
+    }
 
-  const candidate =
-    contentItem?.parsed ??
-    contentItem?.text ??
-    completion.output_text;
-
-  if (!candidate) {
-    throw new Error("Empty AI response");
-  }
-
-  parsed =
-    typeof candidate === "string"
-      ? JSON.parse(candidate)
-      : candidate;
-} catch (error) {
-  return res.status(500).json({
-    success: false,
-    error: "AI returned invalid or unreadable JSON",
-    details: error?.message,
-  });
-}
+    let parsed;
+    try {
+      parsed = JSON.parse(content);
+    } catch (parseError) {
+      console.error("Structured output parse failure:", content);
+      return res.status(500).json({
+        success: false,
+        error: "AI returned unreadable JSON",
+      });
+    }
 
     parsed = preserveSectionDatesFromRawInput(parsed, rawInput);
     parsed = preserveReferencesFromRawInput(parsed, rawInput);
 
-    if (!parsed || typeof parsed !== "object") {
-  return res.status(500).json({
-    success: false,
-    error: "AI returned empty or invalid structured response",
-  });
-}
-const data = cleanStructuredData(parsed);
+    const data = cleanStructuredData(parsed);
     const referenceText = buildReferenceText(
       rawInput.reference_choice,
       rawInput.reference_details
@@ -1180,11 +1236,9 @@ const data = cleanStructuredData(parsed);
       HAS_REFERENCE: Boolean(referenceText),
       REFERENCE_SECTION: referenceText || "",
 
-      HAS_REFERENCES_LIST: Array.isArray(rawInput?.reference_entries) && rawInput.reference_entries.length > 0,
-      references_list: cleanReferenceEntries(rawInput.reference_entries),
+      HAS_REFERENCES_LIST: rawInput.reference_entries.length > 0,
+      references_list: rawInput.reference_entries,
     };
-    
-    const fileName = generateUniqueFileName(data.full_name);
 
     if (NODE_ENV !== "production") {
       console.log("NORMALIZED INPUT:");
@@ -1206,16 +1260,7 @@ const data = cleanStructuredData(parsed);
         },
       });
 
-      try {
-  doc.render(renderData);
-} catch (err) {
-  console.error("Template render error:", err);
-
-  return res.status(500).json({
-    success: false,
-    error: "Template rendering failed",
-  });
-}
+      doc.render(renderData);
 
       buffer = doc.getZip().generate({
         type: "nodebuffer",
@@ -1231,30 +1276,19 @@ const data = cleanStructuredData(parsed);
       });
     }
 
-    let blob;
+    const fileName = generateUniqueFileName(data.full_name);
+    const filePath = path.join(OUTPUT_DIR, fileName);
 
-try {
-  const { put } = require("@vercel/blob");
+    try {
+      fs.writeFileSync(filePath, buffer);
+    } catch (writeError) {
+      console.error("Failed to save generated file:", writeError?.message || writeError);
 
-  if (!put) {
-    throw new Error("Vercel Blob 'put' not available");
-  }
-
-  fs.writeFileSync(path.join(OUTPUT_DIR, fileName), buffer);
-  
-  blob = await put(fileName, buffer, {
-    contentType:
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    access: "public",
-  });
-} catch (writeError) {
-  console.error("Failed to save generated file:", writeError?.message || writeError);
-
-  return res.status(500).json({
-    success: false,
-    error: "Failed to save generated CV file",
-  });
-}
+      return res.status(500).json({
+        success: false,
+        error: "Failed to save generated CV file",
+      });
+    }
 
     const protocol = req.headers["x-forwarded-proto"] || req.protocol;
     const host = req.get("host");
@@ -1264,12 +1298,12 @@ try {
       success: true,
       message: "CV generated successfully",
       file_name: fileName,
-      download_url: blob.url,
+      download_url: `${fullBaseUrl}/download/${encodeURIComponent(fileName)}`,
       reference_text: referenceText,
       preview: renderData,
     });
   } catch (error) {
-    console.error("CV generation failed at /generate-cv:", error);
+    console.error("CV generation failed:", error);
 
     return res.status(500).json({
       success: false,
@@ -1285,12 +1319,14 @@ try {
  * ----------------------------------------
  */
 app.use((err, req, res, next) => {
-  console.error(err);
+  if (err instanceof SyntaxError && err.status === 400 && "body" in err) {
+    return res.status(400).json({
+      success: false,
+      error: "Invalid JSON body",
+    });
+  }
 
-  return res.status(err.statusCode || 500).json({
-    success: false,
-    error: err.message || "Unexpected server error",
-  });
+  return next(err);
 });
 
 /**
@@ -1298,5 +1334,15 @@ app.use((err, req, res, next) => {
  * START SERVER
  * ----------------------------------------
  */
+cleanupOldGeneratedFiles();
+
+setInterval(
+  cleanupOldGeneratedFiles,
+  CLEANUP_INTERVAL_MINUTES * 60 * 1000
+);
+
+app.listen(PORT, () => {
+  console.log(`CV API running on port ${PORT}`);
+});
 
 module.exports = app;
