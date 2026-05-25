@@ -1133,7 +1133,7 @@ const prompt = buildPrompt(rawInput);
     format: {
       type: "json_schema",
       name: "ats_cv_output",
-      json_schema: CV_JSON_SCHEMA.schema
+      schema: CV_JSON_SCHEMA.schema
     }
   },
 
