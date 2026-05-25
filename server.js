@@ -8,6 +8,9 @@ const PizZip = require("pizzip");
 const Docxtemplater = require("docxtemplater");
 const { OpenAI } = require("openai");
 
+const { S3Client, PutObjectCommand, GetObjectCommand } = require("@aws-sdk/client-s3");
+const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
+
 const app = express();
 app.disable("x-powered-by");
 
@@ -20,7 +23,18 @@ process.on("unhandledRejection", (reason) => {
 });
 
 app.use(cors());
-app.use(express.json({ limit: "2mb" }));
+app.use(express.json({ limit: "10mb" }));
+
+const rateLimit = require("express-rate-limit");
+
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 10, // limit each IP to 10 requests per minute
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.use(apiLimiter);
 
 const PORT = Number(process.env.PORT || 3001);
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
@@ -28,17 +42,6 @@ const NODE_ENV = process.env.NODE_ENV || "development";
 
 const TEMPLATE_PATH = path.join(process.cwd(), "templates", "cv-template.docx");
 
-const OUTPUT_DIR =
-  NODE_ENV === "production"
-    ? "/tmp/generated"
-    : path.join(process.cwd(), "generated");
-
-const FILE_RETENTION_HOURS = Number(process.env.FILE_RETENTION_HOURS || 24);
-const CLEANUP_INTERVAL_MINUTES = Number(process.env.CLEANUP_INTERVAL_MINUTES || 60);
-
-if (!fs.existsSync(OUTPUT_DIR)) {
-  fs.mkdirSync(OUTPUT_DIR, { recursive: true });
-}
 
 if (!process.env.OPENAI_API_KEY) {
   console.error("Missing OPENAI_API_KEY in environment variables.");
@@ -47,6 +50,14 @@ if (!process.env.OPENAI_API_KEY) {
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
+});
+
+const s3 = new S3Client({
+  region: process.env.AWS_REGION,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  },
 });
 
 /**
@@ -249,18 +260,14 @@ function cleanDisplayName(value) {
     .join(" ");
 }
 
+let fileCounter = 1;
+
 function generateUniqueFileName(fullName) {
   const cleanName = cleanDisplayName(fullName);
-  const ext = ".docx";
-  const baseName = `${cleanName} CV`;
 
-  let fileName = `${baseName}${ext}`;
-  let counter = 1;
+  const fileName = `${cleanName} (${fileCounter}).docx`;
 
-  while (fs.existsSync(path.join(OUTPUT_DIR, fileName))) {
-    fileName = `${baseName} (${counter})${ext}`;
-    counter++;
-  }
+  fileCounter++;
 
   return fileName;
 }
@@ -925,33 +932,6 @@ function ensureTemplateExists() {
   return fs.existsSync(TEMPLATE_PATH);
 }
 
-function cleanupOldGeneratedFiles() {
-  try {
-    if (!fs.existsSync(OUTPUT_DIR)) return;
-
-    const files = fs.readdirSync(OUTPUT_DIR);
-    const now = Date.now();
-    const maxAgeMs = FILE_RETENTION_HOURS * 60 * 60 * 1000;
-
-    for (const file of files) {
-      const filePath = path.join(OUTPUT_DIR, file);
-
-      try {
-        const stat = fs.statSync(filePath);
-        const ageMs = now - stat.mtimeMs;
-
-        if (stat.isFile() && ageMs > maxAgeMs) {
-          fs.unlinkSync(filePath);
-        }
-      } catch (fileError) {
-        console.error(`Failed to inspect/delete file: ${filePath}`, fileError.message);
-      }
-    }
-  } catch (error) {
-    console.error("Cleanup process failed:", error.message);
-  }
-}
-
 /**
  * ----------------------------------------
  * STRUCTURED OUTPUT SCHEMA
@@ -1111,48 +1091,8 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-app.get("/download/:fileName", (req, res) => {
-  try {
-    const fileName = decodeURIComponent(req.params.fileName);
-    const filePath = path.resolve(OUTPUT_DIR, fileName);
-
-    console.log("DOWNLOAD REQUEST:", fileName);
-    console.log("LOOKING FOR:", filePath);
-
-    if (!fs.existsSync(filePath)) {
-      console.error("FILE DOES NOT EXIST:", filePath);
-
-      return res.status(404).json({
-        success: false,
-        error: "File not found",
-      });
-    }
-
-    return res.download(filePath, fileName, (err) => {
-      if (err) {
-        console.error("DOWNLOAD ERROR:", err);
-
-        if (!res.headersSent) {
-          return res.status(500).json({
-            success: false,
-            error: "Download failed",
-          });
-        }
-      }
-    });
-  } catch (error) {
-    console.error("DOWNLOAD ROUTE ERROR:", error);
-
-    return res.status(500).json({
-      success: false,
-      error: "Download failed",
-    });
-  }
-});
-
 app.post("/generate-cv", async (req, res) => {
   try {
-    cleanupOldGeneratedFiles();
 
     let requestBody;
 
@@ -1326,32 +1266,46 @@ app.post("/generate-cv", async (req, res) => {
       });
     }
 
-    const fileName = generateUniqueFileName(data.full_name);
-    const filePath = path.join(OUTPUT_DIR, fileName);
+const fileName = generateUniqueFileName(data.full_name);
 
-    try {
-      fs.writeFileSync(filePath, buffer);
-    } catch (writeError) {
-      console.error("Failed to save generated file:", writeError?.message || writeError);
+const s3Key = `generated-cv/${fileName}`;
 
-      return res.status(500).json({
-        success: false,
-        error: "Failed to save generated CV file",
-      });
-    }
+try {
+  await s3.send(
+    new PutObjectCommand({
+      Bucket: process.env.AWS_S3_BUCKET,
+      Key: s3Key,
+      Body: buffer,
+      ContentType:
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    })
+  );
+} catch (uploadError) {
+  console.error("S3 upload failed:", uploadError);
 
-    const protocol = req.headers["x-forwarded-proto"] || req.protocol;
-    const host = req.get("host");
-    const fullBaseUrl = `${protocol}://${host}`;
+  return res.status(500).json({
+    success: false,
+    error: "Failed to upload CV",
+  });
+}
 
-    return res.status(200).json({
-      success: true,
-      message: "CV generated successfully",
-      file_name: fileName,
-      download_url: `${fullBaseUrl}/download/${encodeURIComponent(fileName)}`,
-      reference_text: referenceText,
-      preview: renderData,
-    });
+const command = new GetObjectCommand({
+  Bucket: process.env.AWS_S3_BUCKET,
+  Key: s3Key,
+});
+
+const downloadUrl = await getSignedUrl(s3, command, {
+  expiresIn: 600,
+});
+
+return res.status(200).json({
+  success: true,
+  message: "CV generated successfully",
+  file_name: fileName,
+  download_url: downloadUrl,
+  reference_text: referenceText,
+  preview: renderData,
+});
   } catch (error) {
     console.error("CV generation failed:", error);
 
@@ -1384,12 +1338,6 @@ app.use((err, req, res, next) => {
  * START SERVER
  * ----------------------------------------
  */
-cleanupOldGeneratedFiles();
-
-setInterval(
-  cleanupOldGeneratedFiles,
-  CLEANUP_INTERVAL_MINUTES * 60 * 1000
-);
 
 app.listen(PORT, () => {
   console.log(`CV API running on port ${PORT}`);
