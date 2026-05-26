@@ -60,11 +60,6 @@ const s3 = new S3Client({
   },
 });
 
-/**
- * ----------------------------------------
- * HELPERS
- * ----------------------------------------
- */
 function safeString(value) {
   if (value === null || value === undefined) return "";
 
