@@ -260,16 +260,17 @@ function cleanDisplayName(value) {
 
 let fileCounter = 0;
 
-function generateUniqueFileName(fullName, documentType) {
+let fileCounter = 0;
+
+function generateUniqueFileName(fullName) {
   const cleanName = cleanDisplayName(fullName);
-  const cleanDocType = cleanDisplayName(documentType || "Document");
 
   let fileName;
 
   if (fileCounter === 0) {
-    fileName = `${cleanName} ${cleanDocType}.docx`;
+    fileName = `${cleanName} CV.docx`;
   } else {
-    fileName = `${cleanName} ${cleanDocType} (${fileCounter}).docx`;
+    fileName = `${cleanName} CV (${fileCounter}).docx`;
   }
 
   fileCounter++;
@@ -389,7 +390,6 @@ if (safeString(body?.additional_information)) {
 }
 
   return {
-    document_type: safeString(body?.document_type),
     document_purpose: safeString(body?.document_purpose),
 
     full_name: safeString(basicInfo?.full_name),
@@ -488,7 +488,6 @@ function cleanExtraSections(extraSections) {
 
 function cleanStructuredData(data) {
   return {
-    document_type: safeString(data.document_type),
     full_name: safeString(data.full_name).toUpperCase(),
     address: safeString(data.address),
     phone: safeString(data.phone),
@@ -1202,10 +1201,7 @@ app.post("/generate-cv", async (req, res) => {
     parsed = preserveSectionDatesFromRawInput(parsed, rawInput);
     parsed = preserveReferencesFromRawInput(parsed, rawInput);
 
-const data = cleanStructuredData({
-  ...parsed,
-  document_type: rawInput.document_type,
-});
+const data = cleanStructuredData(parsed);
 
 const referenceText = buildReferenceText(
   rawInput.reference_choice,
@@ -1280,11 +1276,7 @@ const bucket = process.env.AWS_BUCKET_NAME;
 
 console.log("BUCKET VALUE:", bucket);
 
-const fileName = generateUniqueFileName(
-  data.full_name,
-  data.document_type
-);
-
+const fileName = generateUniqueFileName(data.full_name);
 const s3Key = `generated-cv/${fileName}`;
 
 try {
