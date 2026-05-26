@@ -1261,6 +1261,10 @@ app.post("/generate-cv", async (req, res) => {
       });
     }
 
+const bucket = process.env.AWS_BUCKET_NAME;
+
+console.log("BUCKET VALUE:", bucket);
+
 const fileName = generateUniqueFileName(data.full_name);
 
 const s3Key = `generated-cv/${fileName}`;
@@ -1268,7 +1272,7 @@ const s3Key = `generated-cv/${fileName}`;
 try {
   await s3.send(
     new PutObjectCommand({
-      Bucket: process.env.AWS_S3_BUCKET,
+      Bucket: bucket,
       Key: s3Key,
       Body: buffer,
       ContentType:
@@ -1285,7 +1289,7 @@ try {
 }
 
 const command = new GetObjectCommand({
-  Bucket: process.env.AWS_S3_BUCKET,
+  Bucket: bucket,
   Key: s3Key,
 });
 
