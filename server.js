@@ -255,12 +255,17 @@ function cleanDisplayName(value) {
     .join(" ");
 }
 
-let fileCounter = 1;
-
-function generateUniqueFileName(fullName) {
+function generateUniqueFileName(fullName, documentType) {
   const cleanName = cleanDisplayName(fullName);
+  const cleanDocType = cleanDisplayName(documentType || "document");
 
-  const fileName = `${cleanName} (${fileCounter}).docx`;
+  let fileName;
+
+  if (fileCounter === 0) {
+    fileName = `${cleanName} ${cleanDocType}.docx`;
+  } else {
+    fileName = `${cleanName} ${cleanDocType} (${fileCounter}).docx`;
+  }
 
   fileCounter++;
 
@@ -1265,7 +1270,10 @@ const bucket = process.env.AWS_BUCKET_NAME;
 
 console.log("BUCKET VALUE:", bucket);
 
-const fileName = generateUniqueFileName(data.full_name);
+const fileName = generateUniqueFileName(
+  data.full_name,
+  data.document_type
+);
 
 const s3Key = `generated-cv/${fileName}`;
 
