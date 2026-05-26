@@ -260,8 +260,6 @@ function cleanDisplayName(value) {
 
 let fileCounter = 0;
 
-let fileCounter = 0;
-
 function generateUniqueFileName(fullName) {
   const cleanName = cleanDisplayName(fullName);
 
