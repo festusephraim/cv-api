@@ -12,6 +12,9 @@ const { S3Client, PutObjectCommand, GetObjectCommand } = require("@aws-sdk/clien
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 
 const app = express();
+
+app.set("trust proxy", 1);
+
 app.disable("x-powered-by");
 
 process.on("uncaughtException", (err) => {
@@ -485,6 +488,7 @@ function cleanExtraSections(extraSections) {
 
 function cleanStructuredData(data) {
   return {
+    document_type: safeString(data.document_type),
     full_name: safeString(data.full_name).toUpperCase(),
     address: safeString(data.address),
     phone: safeString(data.phone),
@@ -1198,11 +1202,15 @@ app.post("/generate-cv", async (req, res) => {
     parsed = preserveSectionDatesFromRawInput(parsed, rawInput);
     parsed = preserveReferencesFromRawInput(parsed, rawInput);
 
-    const data = cleanStructuredData(parsed);
-    const referenceText = buildReferenceText(
-      rawInput.reference_choice,
-      rawInput.reference_details
-    );
+const data = cleanStructuredData({
+  ...parsed,
+  document_type: rawInput.document_type,
+});
+
+const referenceText = buildReferenceText(
+  rawInput.reference_choice,
+  rawInput.reference_details
+);
 
     const renderData = {
       FULL_NAME: data.full_name || "",
