@@ -255,9 +255,11 @@ function cleanDisplayName(value) {
     .join(" ");
 }
 
+let fileCounter = 0;
+
 function generateUniqueFileName(fullName, documentType) {
   const cleanName = cleanDisplayName(fullName);
-  const cleanDocType = cleanDisplayName(documentType || "document");
+  const cleanDocType = cleanDisplayName(documentType || "Document");
 
   let fileName;
 
