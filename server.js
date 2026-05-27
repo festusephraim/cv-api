@@ -290,26 +290,11 @@ async function generateFileName(s3, bucket, fullName) {
 function parseRequestBody(reqBody) {
   const payload = reqBody?.raw_submission_json;
 
-  console.log("RAW payload TYPE:", typeof payload);
-  console.log("RAW TOP LEVEL KEYS:", Object.keys(reqBody || {}));
-
-  // CASE 1: nothing sent
   if (!payload) return reqBody;
 
-  // CASE 2: already object
-  if (typeof payload === "object" && !Array.isArray(payload)) {
-    return {
-      ...reqBody,
-      ...payload,
-    };
-  }
-
-  // CASE 3: stringified JSON (YOUR REAL CASE)
   if (typeof payload === "string") {
     try {
-      const parsed = JSON.parse(payload);
-
-      return parsed;
+      return JSON.parse(payload);
     } catch (err) {
       throw {
         statusCode: 400,
@@ -317,6 +302,10 @@ function parseRequestBody(reqBody) {
         details: err.message,
       };
     }
+  }
+
+  if (typeof payload === "object") {
+    return payload;
   }
 
   return reqBody;
@@ -1304,8 +1293,10 @@ const CV_JSON_SCHEMA = {
  */
 
 function determineTemplateType(rawInput) {
-  const experience = safeArray(rawInput?.experience);
-  const hasExperience = experience.length > 0;
+  const experience = safeArray(rawInput?.work_experience);
+  const hasExperience = experience.some(
+  e => safeString(e?.job_title) || safeString(e?.company)
+);
 
   const purpose = safeString(rawInput?.document_purpose).toLowerCase();
 
