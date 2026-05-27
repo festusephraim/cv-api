@@ -304,7 +304,7 @@ function parseRequestBody(reqBody) {
     };
   }
 
-  // CASE 3: stringified JSON (your real case)
+  // CASE 3: stringified JSON (YOUR REAL CASE)
   if (typeof payload === "string") {
     try {
       const parsed = JSON.parse(payload);
@@ -314,10 +314,11 @@ function parseRequestBody(reqBody) {
         ...parsed,
       };
     } catch (err) {
-      const customError = new Error("Invalid raw_submission_json string");
-      customError.statusCode = 400;
-      customError.details = err.message;
-      throw customError;
+      throw {
+        statusCode: 400,
+        message: "Invalid raw_submission_json string",
+        details: err.message,
+      };
     }
   }
 
