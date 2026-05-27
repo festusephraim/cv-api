@@ -329,7 +329,7 @@ function normalizeIncomingPayload(body) {
 const builtReferenceDetails = buildReferenceDetailsFromEntries(referenceEntries);
 
 let reference_choice =
-  (body?.references?.include_references ?? body?.reference_choice)
+  body?.references?.include_references === true
     ? "included"
     : "available";
 
