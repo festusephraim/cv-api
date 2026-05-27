@@ -290,10 +290,13 @@ async function generateFileName(s3, bucket, fullName) {
 function parseRequestBody(reqBody) {
   const payload = reqBody?.raw_submission_json;
 
-  // CASE 1: no payload, return original
+  console.log("RAW payload TYPE:", typeof payload);
+  console.log("RAW TOP LEVEL KEYS:", Object.keys(reqBody || {}));
+
+  // CASE 1: nothing sent
   if (!payload) return reqBody;
 
-  // CASE 2: already parsed object
+  // CASE 2: already object
   if (typeof payload === "object" && !Array.isArray(payload)) {
     return {
       ...reqBody,
@@ -301,7 +304,7 @@ function parseRequestBody(reqBody) {
     };
   }
 
-  // CASE 3: stringified JSON (your main issue case)
+  // CASE 3: stringified JSON (your real case)
   if (typeof payload === "string") {
     try {
       const parsed = JSON.parse(payload);
@@ -310,15 +313,14 @@ function parseRequestBody(reqBody) {
         ...reqBody,
         ...parsed,
       };
-    } catch (error) {
-      const customError = new Error("Invalid raw_submission_json format");
-      customError.details = error.message;
+    } catch (err) {
+      const customError = new Error("Invalid raw_submission_json string");
       customError.statusCode = 400;
+      customError.details = err.message;
       throw customError;
     }
   }
 
-  // fallback safety
   return reqBody;
 }
 
