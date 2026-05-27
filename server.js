@@ -232,7 +232,7 @@ function buildReferenceText(referenceChoice, referenceDetails) {
     case "none":
       return "";
     default:
-      return "References available upon request";
+      return "";
   }
 }
 
@@ -531,7 +531,7 @@ function cleanExtraSections(extraSections) {
 }
 
 function cleanStructuredData(data) {
-  return {
+    return {
     full_name: safeString(data.full_name).toUpperCase(),
     address: safeString(data.address),
     phone: safeString(data.phone),
@@ -551,7 +551,9 @@ function cleanStructuredData(data) {
     projects: cleanProjectsArray(data.projects),
     education: cleanEducationArray(data.education),
     certifications: cleanCertificationsArray(data.certifications),
-    extra_sections: cleanExtraSections(data.extra_sections),
+    extra_sections: cleanExtraSections(data.extra_sections).filter(
+  (s) => safeString(s.section_content).length > 0
+),
 
     reference_choice: normaliseReferenceChoice(data.reference_choice),
     reference_details: safeString(data.reference_details),
@@ -1560,7 +1562,10 @@ const referenceText = buildReferenceText(
   rawInput.reference_details
 );
 
-    const renderData = {
+    const hasReference =
+  safeString(referenceText).length > 0;
+
+const renderData = {
   FULL_NAME: data.full_name || "",
   CONTACT_LINE: buildContactLine(data) || "",
   PROFESSIONAL_SUMMARY: data.professional_summary || "",
@@ -1583,10 +1588,8 @@ const referenceText = buildReferenceText(
   HAS_EXTRA: data.extra_sections.length > 0,
   extra_sections: data.extra_sections,
 
-  HAS_REFERENCE: !!referenceText,
-  REFERENCE_SECTION: referenceText || "",
-
-  HAS_REFERENCES_LIST: safeArray(rawInput.reference_entries).length > 0,
+  HAS_REFERENCE: hasReference,
+  REFERENCE_SECTION: referenceText,
   references_list: rawInput.reference_entries,
 };
 
