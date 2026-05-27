@@ -1354,6 +1354,8 @@ app.get("/api/health", (req, res) => {
 app.post("/generate-cv", async (req, res) => {
   try {
 
+    console.log("STEP 1: Route hit");
+
     let requestBody;
 
     try {
@@ -1376,6 +1378,8 @@ app.post("/generate-cv", async (req, res) => {
 
 const rawInput = normalizeIncomingPayload(requestBody);
 
+console.log("STEP 2: Payload normalized");
+
 const templateType = determineTemplateType(rawInput);
 
 const TEMPLATE_PATH =
@@ -1391,55 +1395,65 @@ const TEMPLATE_PATH =
     }
 
     const prompt = buildPrompt(rawInput);
+    
+    console.log("STEP 3: Prompt built");
 
-    let completion;
-    try {
-      completion = await openai.responses.create({
-  model: "gpt-4.1-mini",
-  temperature: 0.2,
-  text: {
-    format: {
-      type: "json_schema",
-      name: CV_JSON_SCHEMA.name,
-      strict: true,
-      schema: CV_JSON_SCHEMA.schema,
-    },
-  },
-  input: [
-    {
-      role: "developer",
-      content: [
-        {
-          type: "input_text",
-          text: "Return only valid JSON matching the provided schema. No markdown. No commentary.",
-        },
-      ],
-    },
-    {
-      role: "user",
-      content: [
-        {
-          type: "input_text",
-          text: prompt,
-        },
-      ],
-    },
-  ],
-});
-    } catch (openaiError) {
-      console.error("OpenAI request failed:", openaiError?.message || openaiError);
+    console.log("STEP 4: Sending OpenAI request");
 
-      const statusCode =
-        typeof openaiError?.status === "number" && openaiError.status >= 400
-          ? 502
-          : 500;
+let completion;
 
-      return res.status(statusCode).json({
-        success: false,
-        error: "AI generation request failed",
-        details: openaiError?.message || "Unknown OpenAI error",
-      });
-    }
+try {
+  completion = await openai.responses.create({
+    model: "gpt-4.1-mini",
+    temperature: 0.2,
+
+    text: {
+      format: {
+        type: "json_schema",
+        name: CV_JSON_SCHEMA.name,
+        strict: true,
+        schema: CV_JSON_SCHEMA.schema,
+      },
+    },
+
+    input: [
+      {
+        role: "developer",
+        content: [
+          {
+            type: "input_text",
+            text: "Return only valid JSON matching the provided schema. No markdown. No commentary.",
+          },
+        ],
+      },
+      {
+        role: "user",
+        content: [
+          {
+            type: "input_text",
+            text: prompt,
+          },
+        ],
+      },
+    ],
+  });
+
+  console.log("STEP 5: OpenAI response received");
+
+} catch (openaiError) {
+  console.error("OpenAI request failed:", openaiError?.message || openaiError);
+
+  const statusCode =
+    typeof openaiError?.status === "number" && openaiError.status >= 400
+      ? 502
+      : 500;
+
+  return res.status(statusCode).json({
+    success: false,
+    error: "AI generation request failed",
+    details: openaiError?.message || "Unknown OpenAI error",
+  });
+}
 
     const content = completion?.output_text || completion?.output?.[0]?.content?.[0]?.text;
 
@@ -1460,6 +1474,8 @@ const TEMPLATE_PATH =
         error: "AI returned unreadable JSON",
       });
     }
+
+    console.log("STEP 6: JSON parsed");
 
     parsed = preserveSectionDatesFromRawInput(parsed, rawInput);
     parsed = preserveReferencesFromRawInput(parsed, rawInput);
@@ -1519,21 +1535,27 @@ const referenceText = buildReferenceText(
         },
       });
 
+      console.log("STEP 7: Rendering DOCX");
+
       doc.render(renderData);
 
       buffer = doc.getZip().generate({
         type: "nodebuffer",
         compression: "DEFLATE",
       });
-    } catch (docError) {
-      console.error("Document render failed:", docError?.message || docError);
+  } catch (docError) {
+  console.error("Document render failed:", docError?.message || docError);
 
-      return res.status(500).json({
-        success: false,
-        error: "CV document rendering failed",
-        details: docError?.message || "Template render error",
-      });
-    }
+  return res.status(500).json({
+    success: false,
+    error: "CV document rendering failed",
+    details: docError?.message || "Template render error",
+  });
+}
+
+console.log("STEP 8: DOCX rendered");
+
+    console.log("STEP 9: Uploading to S3");
 
 const bucket = process.env.AWS_BUCKET_NAME;
 
@@ -1552,6 +1574,8 @@ try {
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     })
   );
+
+  console.log("STEP 10: S3 upload successful");
 } catch (uploadError) {
   console.error("S3 upload failed:", uploadError);
 
