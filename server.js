@@ -318,12 +318,17 @@ function parseRequestBody(reqBody) {
 
 function normalizeIncomingPayload(body) {
   const basicInfo = body?.basic_information || {};
-  const workExperience = clampArray(
-  safeArray(body?.work_experience || body?.experience),
-  3
+  const workExperience = safeArray(
+  body?.work_experience || body?.experience
+).filter(item =>
+  safeString(item?.job_title || item?.title || item?.company)
 );
-  const education = clampArray(safeArray(body?.education), 3);
-  const projects = clampArray(safeArray(body?.projects_research), 3);
+  const education = safeArray(body?.education).filter(item =>
+  safeString(item?.degree_qualification || item?.degree || item?.school)
+);
+  const projects = safeArray(body?.projects_research).filter(item =>
+  safeString(item?.project_title)
+);
 
   const referenceEntries = cleanReferenceEntries(body?.references?.reference_entries || body?.reference_entries);
 const builtReferenceDetails = buildReferenceDetailsFromEntries(referenceEntries);
@@ -549,16 +554,17 @@ function cleanStructuredData(data) {
       8
     ),
 
-    experience: isMeaningfulArray(data.experience)
-  ? cleanExperienceArray(data.experience)
-  : [],
-    projects: isMeaningfulArray(data.projects)
-  ? cleanProjectsArray(data.projects)
-  : [],
+    experience: cleanExperienceArray(data.experience).filter(
+  e => e.title || e.company || e.tasks.length
+),
 
-education: isMeaningfulArray(data.education)
-  ? cleanEducationArray(data.education)
-  : [],
+education: cleanEducationArray(data.education).filter(
+  e => e.degree || e.school
+),
+
+projects: cleanProjectsArray(data.projects).filter(
+  p => p.project_title
+),
     certifications: cleanCertificationsArray(data.certifications),
     extra_sections: cleanExtraSections(data.extra_sections).filter(
   (s) => safeString(s.section_content).length > 0
