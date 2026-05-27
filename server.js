@@ -319,9 +319,9 @@ function normalizeIncomingPayload(body) {
   const referenceEntries = cleanReferenceEntries(body?.references?.reference_entries);
   const builtReferenceDetails = buildReferenceDetailsFromEntries(referenceEntries);
 
-  let reference_choice = normaliseReferenceChoice(
-    body?.references_section_preference
-  );
+  let reference_choice = body?.references?.include_references
+  ? "included"
+  : "available";
 
   if (reference_choice === "included" && !builtReferenceDetails) {
     reference_choice = "available";
@@ -425,7 +425,7 @@ if (safeString(body?.additional_information)) {
 
     extra_sections,
 
-    reference_choice,
+    reference_choice: body?.references?.include_references ? "included" : "available",
     reference_details: builtReferenceDetails,
     reference_entries: referenceEntries,
   };
@@ -1384,7 +1384,7 @@ if (incomingError) {
 
 console.log("STEP 4: Before normalization");
 
-const rawInput = normalizeIncomingPayload(requestBody);
+let rawInput = normalizeIncomingPayload(requestBody);
 
 console.log("STEP 5: After normalization");
 
