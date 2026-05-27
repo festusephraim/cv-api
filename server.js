@@ -288,27 +288,40 @@ async function generateFileName(s3, bucket, fullName) {
 }
 
 function parseRequestBody(reqBody) {
-  if (
-    reqBody?.raw_submission_json &&
-    typeof reqBody.raw_submission_json === "object" &&
-    !Array.isArray(reqBody.raw_submission_json)
-  ) {
-    return reqBody.raw_submission_json;
+  const payload = reqBody?.raw_submission_json;
+
+  // CASE 1: no payload, return original
+  if (!payload) return reqBody;
+
+  // CASE 2: already parsed object
+  if (typeof payload === "object" && !Array.isArray(payload)) {
+    return {
+      ...reqBody,
+      ...payload,
+    };
   }
 
-  if (typeof reqBody?.raw_submission_json === "string") {
+  // CASE 3: stringified JSON (your main issue case)
+  if (typeof payload === "string") {
     try {
-      return JSON.parse(reqBody.raw_submission_json);
+      const parsed = JSON.parse(payload);
+
+      return {
+        ...reqBody,
+        ...parsed,
+      };
     } catch (error) {
-      const customError = new Error("Invalid saved raw_submission_json");
+      const customError = new Error("Invalid raw_submission_json format");
       customError.details = error.message;
       customError.statusCode = 400;
       throw customError;
     }
   }
 
+  // fallback safety
   return reqBody;
 }
+
 
 function normalizeIncomingPayload(body) {
   const basicInfo = body?.basic_information || {};
