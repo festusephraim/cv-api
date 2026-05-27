@@ -93,23 +93,27 @@ function clampArray(arr, max) {
 }
 
 function normaliseReferenceChoice(value) {
-  const cleaned = safeString(value).toLowerCase();
+  const cleaned = safeString(value).toLowerCase().trim();
 
-  if (cleaned === "include full references in my cv") return "included";
+  if (!cleaned) return "available";
 
-  if (
-    cleaned === "use ‘references available upon request’" ||
-    cleaned === "use 'references available upon request'" ||
-    cleaned === "use references available upon request" ||
-    cleaned === "references available upon request" ||
-    cleaned === "available"
-  ) {
-    return "available";
-  }
+  const includedSignals = [
+    "include full references in my cv",
+    "include references",
+    "full references",
+  ];
 
+  const availableSignals = [
+    "use references available upon request",
+    "references available upon request",
+    "available",
+  ];
+
+  if (includedSignals.includes(cleaned)) return "included";
+  if (availableSignals.includes(cleaned)) return "available";
   if (cleaned === "none") return "none";
 
-  if (cleaned === "included" || cleaned === "available" || cleaned === "none") {
+  if (["included", "available", "none"].includes(cleaned)) {
     return cleaned;
   }
 
@@ -261,11 +265,11 @@ async function generateFileName(s3, bucket, fullName) {
   const baseKeyPrefix = `generated-cv/${cleanName} CV`;
 
   const list = await s3.send(
-    new ListObjectsV2Command({
-      Bucket: bucket,
-      Prefix: baseKeyPrefix,
-    })
-  );
+  new ListObjectsV2Command({
+    Bucket: bucket,
+    Prefix: `generated-cv/${cleanName} CV`,
+  })
+);
 
   const existing = (list.Contents || [])
     .map((obj) => obj.Key)
@@ -325,7 +329,7 @@ function normalizeIncomingPayload(body) {
 const builtReferenceDetails = buildReferenceDetailsFromEntries(referenceEntries);
 
 let reference_choice =
-  body?.references?.include_references ?? body?.reference_choice
+  (body?.references?.include_references ?? body?.reference_choice)
     ? "included"
     : "available";
 
@@ -337,11 +341,31 @@ if (reference_choice === "included" && !builtReferenceDetails) {
   title: safeString(item?.title || item?.job_title),
   company: safeString(item?.company),
   location: safeString(item?.location),
-  start: safeString(item?.start || item?.start_date),
-  end: item?.currently_working_here ? "" : safeString(item?.end || item?.end_date),
+
+  start: safeString(
+    item?.start ||
+    item?.start_date
+  ),
+
+  end: item?.currently_working_here
+    ? ""
+    : safeString(
+        item?.end ||
+        item?.end_date
+      ),
+
   role_summary: "",
-  tasks: splitLinesToArray(item?.tasks || item?.what_did_you_do_in_this_role, 5),
-  edu_competencies: splitLinesToArray(item?.edu_competencies, 4),
+
+  tasks: splitLinesToArray(
+    item?.tasks ||
+    item?.what_did_you_do_in_this_role,
+    5
+  ),
+
+  edu_competencies: splitLinesToArray(
+    item?.edu_competencies,
+    4
+  ),
 }));
 
   const mappedEducation = education.map((item) => ({
@@ -574,8 +598,10 @@ function preserveSectionDatesFromRawInput(parsed, rawInput) {
 }
 
 function preserveReferencesFromRawInput(parsed, rawInput) {
-  parsed.reference_choice = rawInput.reference_choice;
-  parsed.reference_details = rawInput.reference_details;
+  parsed.reference_choice = normaliseReferenceChoice(
+    rawInput?.references?.include_references ?? rawInput?.reference_choice
+  );
+  parsed.reference_details = safeString(rawInput.reference_details);
   return parsed;
 }
 
@@ -1535,34 +1561,34 @@ const referenceText = buildReferenceText(
 );
 
     const renderData = {
-      FULL_NAME: data.full_name || "",
-      CONTACT_LINE: buildContactLine(data) || "",
-      PROFESSIONAL_SUMMARY: data.professional_summary || "",
-      SKILLS_LINE: buildSkillsLine(data.skills) || "",
+  FULL_NAME: data.full_name || "",
+  CONTACT_LINE: buildContactLine(data) || "",
+  PROFESSIONAL_SUMMARY: data.professional_summary || "",
+  SKILLS_LINE: buildSkillsLine(data.skills) || "",
 
-      HAS_EXPERIENCE: data.experience.length ? [1] : [],
-      experience: data.experience,
+  HAS_EXPERIENCE: data.experience.length > 0,
+  experience: data.experience,
 
-      HAS_SKILLS: data.skills.length ? [1] : [],
+  HAS_SKILLS: data.skills.length > 0,
 
-      HAS_PROJECTS: data.projects.length ? [1] : [],
-      projects: data.projects,
+  HAS_PROJECTS: data.projects.length > 0,
+  projects: data.projects,
 
-      HAS_EDUCATION: data.education.length ? [1] : [],
-      education: data.education,
+  HAS_EDUCATION: data.education.length > 0,
+  education: data.education,
 
-      HAS_CERTIFICATIONS: data.certifications.length ? [1] : [],
-      certifications: data.certifications,
+  HAS_CERTIFICATIONS: data.certifications.length > 0,
+  certifications: data.certifications,
 
-      HAS_EXTRA: data.extra_sections.length ? [1] : [],
-      extra_sections: data.extra_sections,
+  HAS_EXTRA: data.extra_sections.length > 0,
+  extra_sections: data.extra_sections,
 
-      HAS_REFERENCE: referenceText ? [1] : [],
-      REFERENCE_SECTION: referenceText || "",
+  HAS_REFERENCE: !!referenceText,
+  REFERENCE_SECTION: referenceText || "",
 
-      HAS_REFERENCES_LIST: rawInput.reference_entries.length > 0,
-      references_list: rawInput.reference_entries,
-    };
+  HAS_REFERENCES_LIST: safeArray(rawInput.reference_entries).length > 0,
+  references_list: rawInput.reference_entries,
+};
 
     if (NODE_ENV !== "development") {
       console.log("NORMALIZED INPUT:");
@@ -1609,6 +1635,13 @@ console.log("STEP 8: DOCX rendered");
 
 const bucket = process.env.AWS_BUCKET_NAME;
 
+if (!bucket) {
+  return res.status(500).json({
+    success: false,
+    error: "AWS_BUCKET_NAME is not defined in environment variables",
+  });
+}
+
 console.log("BUCKET VALUE:", bucket);
 
 const fileName = await generateFileName(s3, bucket, data.full_name);
@@ -1637,7 +1670,7 @@ try {
 
 const command = new GetObjectCommand({
   Bucket: bucket,
-  Key: s3Key,
+  Key: s3Key.startsWith("generated-cv/") ? s3Key : `generated-cv/${s3Key}`,
 });
 
 const downloadUrl = await getSignedUrl(s3, command, {
