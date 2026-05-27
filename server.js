@@ -309,10 +309,7 @@ function parseRequestBody(reqBody) {
     try {
       const parsed = JSON.parse(payload);
 
-      return {
-        ...reqBody,
-        ...parsed,
-      };
+      return parsed;
     } catch (err) {
       throw {
         statusCode: 400,
