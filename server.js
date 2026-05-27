@@ -1388,8 +1388,6 @@ const rawInput = normalizeIncomingPayload(requestBody);
 
 console.log("STEP 5: After normalization");
 
-const rawInput = normalizeIncomingPayload(requestBody);
-
 console.log("STEP 2: Payload normalized");
 
 const templateType = determineTemplateType(rawInput);
