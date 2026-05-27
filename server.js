@@ -477,7 +477,13 @@ function cleanExperienceArray(experience) {
       role_summary: safeString(item?.role_summary),
       tasks: normaliseBulletArray(item?.tasks, 5),
     }))
-    .filter((item) => item.title || item.company || item.tasks.length);
+    .filter((item) => {
+      return (
+        item.title ||
+        item.company ||
+        item.tasks.length > 0
+      );
+    });
 }
 
 function cleanProjectsArray(projects) {
@@ -490,14 +496,7 @@ function cleanProjectsArray(projects) {
       end_or_present: endOrPresent(item?.end),
       project_tasks: normaliseBulletArray(item?.project_tasks, 4),
     }))
-    .filter(
-      (item) =>
-        item.project_title ||
-        item.project_description ||
-        item.start ||
-        item.end ||
-        item.project_tasks.length
-    );
+    .filter((item) => item.project_title || item.project_description);
 }
 
 function cleanEducationArray(education) {
@@ -519,6 +518,9 @@ function cleanCertificationsArray(certifications) {
   return clampArray(safeArray(certifications), 8)
     .map((item) => safeString(item))
     .filter(Boolean);
+}
+function isMeaningfulArray(arr) {
+  return Array.isArray(arr) && arr.some(Boolean);
 }
 
 function cleanExtraSections(extraSections) {
@@ -547,9 +549,16 @@ function cleanStructuredData(data) {
       8
     ),
 
-    experience: cleanExperienceArray(data.experience),
-    projects: cleanProjectsArray(data.projects),
-    education: cleanEducationArray(data.education),
+    experience: isMeaningfulArray(data.experience)
+  ? cleanExperienceArray(data.experience)
+  : [],
+    projects: isMeaningfulArray(data.projects)
+  ? cleanProjectsArray(data.projects)
+  : [],
+
+education: isMeaningfulArray(data.education)
+  ? cleanEducationArray(data.education)
+  : [],
     certifications: cleanCertificationsArray(data.certifications),
     extra_sections: cleanExtraSections(data.extra_sections).filter(
   (s) => safeString(s.section_content).length > 0
