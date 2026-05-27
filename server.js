@@ -92,6 +92,32 @@ function clampArray(arr, max) {
   return Array.isArray(arr) ? arr.slice(0, max) : [];
 }
 
+function findMatchingRaw(rawList, item, index) {
+  const list = safeArray(rawList);
+
+  // 1. exact match
+  let match = list.find(raw =>
+    safeString(raw?.job_title || raw?.title) === safeString(item?.title) &&
+    safeString(raw?.company) === safeString(item?.company)
+  );
+
+  if (match) return match;
+
+  // 2. normalized match
+  const targetTitle = normalizeKey(item?.title);
+  const targetCompany = normalizeKey(item?.company);
+
+  match = list.find(raw =>
+    normalizeKey(raw?.job_title || raw?.title) === targetTitle &&
+    normalizeKey(raw?.company) === targetCompany
+  );
+
+  if (match) return match;
+
+  // 3. fallback by index (very useful in ordered CVs)
+  return list[index] || null;
+}
+
 function normaliseReferenceChoice(value) {
   const cleaned = safeString(value).toLowerCase().trim();
 
@@ -262,8 +288,7 @@ function cleanDisplayName(value) {
 
 async function generateFileName(s3, bucket, fullName) {
   const cleanName = cleanDisplayName(fullName);
-  const baseKeyPrefix = `generated-cv/${cleanName} CV`;
-
+  
   const list = await s3.send(
   new ListObjectsV2Command({
     Bucket: bucket,
@@ -272,11 +297,12 @@ async function generateFileName(s3, bucket, fullName) {
 );
 
   const existing = (list.Contents || [])
-    .map((obj) => obj.Key)
-    .filter(Boolean);
+  .map((obj) => obj.Key)
+  .filter(Boolean)
+  .filter((key) => key.startsWith(`generated-cv/${cleanName} CV`));
 
   if (existing.length === 0) {
-    return `${cleanName} CV.docx`;
+    return `generated-cv/${cleanName} CV.docx`;
   }
 
   let maxIndex = 0;
@@ -288,7 +314,7 @@ async function generateFileName(s3, bucket, fullName) {
     }
   }
 
-  return `${cleanName} CV (${maxIndex + 1}).docx`;
+  return `generated-cv/${cleanName} CV (${maxIndex + 1}).docx`;
 }
 
 function parseRequestBody(reqBody) {
@@ -587,36 +613,49 @@ function preserveSectionDatesFromRawInput(parsed, rawInput) {
   const parsedProjects = safeArray(parsed?.projects);
 
   const rawExperience = safeArray(
-  rawInput?.work_experience || rawInput?.experience
-);
+    rawInput?.work_experience || rawInput?.experience
+  );
   const rawEducation = safeArray(rawInput?.education);
- const rawProjects = safeArray(
-  rawInput?.projects_research || rawInput?.projects
-);
+  const rawProjects = safeArray(
+    rawInput?.projects_research || rawInput?.projects
+  );
 
-  parsed.experience = parsedExperience.map((item, index) => ({
-  ...item,
-  start: safeString(rawExperience[index]?.start),
-  end: rawExperience[index]?.currently_working_here
-    ? ""
-    : safeString(rawExperience[index]?.end),
-}));
+  parsed.experience = parsedExperience.map((item, index) => {
+    const match = findMatchingRaw(rawExperience, item);
 
-  parsed.education = parsedEducation.map((item, index) => ({
-  ...item,
-  start: safeString(rawEducation[index]?.start),
-  end: rawEducation[index]?.currently_studying_here
-    ? ""
-    : safeString(rawEducation[index]?.end),
-}));
+    return {
+      ...item,
+      start: safeString(match?.start || match?.start_date),
+      end: match?.currently_working_here
+        ? ""
+        : safeString(match?.end || match?.end_date),
+    };
+  });
 
-  parsed.projects = parsedProjects.map((item, index) => ({
-  ...item,
-  start: safeString(rawProjects[index]?.start),
-  end: rawProjects[index]?.currently_working_on_this_project
-    ? ""
-    : safeString(rawProjects[index]?.end),
-}));
+  parsed.education = parsedEducation.map((item, index) => {
+    const match = findMatchingRaw(rawEducation, item);
+
+    return {
+      ...item,
+      start: safeString(match?.start || match?.start_date),
+      end: match?.currently_studying_here
+        ? ""
+        : safeString(match?.end || match?.end_date),
+    };
+  });
+
+  parsed.projects = parsedProjects.map((item, index) => {
+    const match = findMatchingRaw(rawProjects, item);
+
+    return {
+      ...item,
+      start: safeString(match?.start || match?.start_date),
+      end: match?.currently_working_on_this_project
+        ? ""
+        : safeString(match?.end || match?.end_date),
+    };
+  });
+
   return parsed;
 }
 
@@ -1219,9 +1258,9 @@ ${JSON.stringify(
     job_description: rawInput.job_description,
     professional_summary: rawInput.professional_summary,
     skills: rawInput.skills,
-    experience: rawInput.experience?.filter(e => e.title || e.company),
-    education: rawInput.education?.filter(e => e.degree),
-    projects: rawInput.projects?.filter(p => p.project_title),
+    work_experience: rawInput.work_experience,
+    education: rawInput.education,
+    projects_research: rawInput.projects_research,
     certifications: rawInput.certifications,
     additional_information: rawInput.extra_sections,
     reference_choice: rawInput.reference_choice,
@@ -1569,14 +1608,46 @@ try {
   });
 }
 
-    const content = completion?.output_text || completion?.output?.[0]?.content?.[0]?.text;
+    function extractOpenAIText(response) {
+  if (!response) return null;
 
-    if (!content) {
-      return res.status(500).json({
-        success: false,
-        error: "Empty AI response",
-      });
+  // 1. New SDK shortcut (preferred)
+  if (typeof response.output_text === "string" && response.output_text.trim()) {
+    return response.output_text;
+  }
+
+  // 2. Standard structured output path
+  const output = response.output;
+
+  if (Array.isArray(output)) {
+    for (const item of output) {
+      const content = item?.content;
+
+      if (Array.isArray(content)) {
+        for (const c of content) {
+          if (typeof c?.text === "string" && c.text.trim()) {
+            return c.text;
+          }
+        }
+      }
     }
+  }
+
+  // 3. Older / fallback response shapes (just in case)
+  if (typeof response?.text === "string") {
+    return response.text;
+  }
+
+  return null;
+}
+const content = extractOpenAIText(completion);
+
+    if (!content || typeof content !== "string") {
+  return res.status(500).json({
+    success: false,
+    error: "Empty or invalid AI response",
+  });
+}
 
     let parsed;
     try {
@@ -1718,7 +1789,9 @@ if (!bucket) {
 console.log("BUCKET VALUE:", bucket);
 
 const fileName = await generateFileName(s3, bucket, data.full_name);
-const s3Key = `generated-cv/${fileName}`;
+const s3Key = fileName.startsWith("generated-cv/")
+  ? fileName
+  : `generated-cv/${fileName}`;
 
 try {
   await s3.send(
