@@ -282,7 +282,7 @@ async function generateFileName(s3, bucket, fullName) {
   let maxIndex = 0;
 
   for (const key of existing) {
-    const match = key.match(/\((\d+)\)\.docx$/);
+    const match = key.split("/").pop().match(/\((\d+)\)\.docx$/);
     if (match) {
       maxIndex = Math.max(maxIndex, parseInt(match[1], 10));
     }
@@ -619,6 +619,8 @@ function preserveSectionDatesFromRawInput(parsed, rawInput) {
 }));
   return parsed;
 }
+
+
 
 function preserveReferencesFromRawInput(parsed, rawInput) {
   parsed.reference_choice = normaliseReferenceChoice(
@@ -1210,7 +1212,23 @@ If both layers conflict:
 → prioritize HUMAN RECRUITER LAYER while preserving ATS keywords naturally.
 
 USER INPUT:
-${JSON.stringify(rawInput, null, 2)}
+${JSON.stringify(
+  {
+    document_purpose: rawInput.document_purpose,
+    full_name: rawInput.full_name,
+    job_description: rawInput.job_description,
+    professional_summary: rawInput.professional_summary,
+    skills: rawInput.skills,
+    experience: rawInput.experience?.filter(e => e.title || e.company),
+    education: rawInput.education?.filter(e => e.degree),
+    projects: rawInput.projects?.filter(p => p.project_title),
+    certifications: rawInput.certifications,
+    additional_information: rawInput.extra_sections,
+    reference_choice: rawInput.reference_choice,
+  },
+  null,
+  2
+)}
 `.trim();
 }
 
@@ -1225,7 +1243,7 @@ function ensureTemplateExists(templatePath) {
  */
 const CV_JSON_SCHEMA = {
   name: "ats_cv_output",
-  strict: true,
+  strict: false,
   schema: {
     type: "object",
     additionalProperties: false,
@@ -1575,6 +1593,37 @@ try {
 
     parsed = preserveSectionDatesFromRawInput(parsed, rawInput);
     parsed = preserveReferencesFromRawInput(parsed, rawInput);
+
+ function safeFallback(parsed) {
+  parsed.skills = Array.isArray(parsed.skills) ? parsed.skills : [];
+
+  parsed.experience = Array.isArray(parsed.experience)
+    ? parsed.experience.map(e => ({
+        ...e,
+        tasks: Array.isArray(e.tasks) ? e.tasks : [],
+      }))
+    : [];
+
+  parsed.education = Array.isArray(parsed.education)
+    ? parsed.education.map(e => ({
+        ...e,
+        edu_competencies: Array.isArray(e.edu_competencies)
+          ? e.edu_competencies
+          : [],
+      }))
+    : [];
+
+  parsed.projects = Array.isArray(parsed.projects)
+    ? parsed.projects.map(p => ({
+        ...p,
+        project_tasks: Array.isArray(p.project_tasks)
+          ? p.project_tasks
+          : [],
+      }))
+    : [];
+
+  return parsed;
+}   
 
 const data = cleanStructuredData(parsed);
 
