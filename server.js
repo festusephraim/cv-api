@@ -1324,7 +1324,14 @@ app.get("/", (req, res) => {
     success: true,
     message: "CV API is running",
     environment: NODE_ENV,
-    template_exists: true,
+    template_exists: {
+  entry: fs.existsSync(
+    path.join(process.cwd(), "templates", "template_entry_level.docx")
+  ),
+  professional: fs.existsSync(
+    path.join(process.cwd(), "templates", "template_professional.docx")
+  ),
+}
   });
 });
 
@@ -1333,7 +1340,14 @@ app.get("/api/health", (req, res) => {
     success: true,
     message: "Server is healthy",
     environment: NODE_ENV,
-    template_exists: true,
+    template_exists: {
+  entry: fs.existsSync(
+    path.join(process.cwd(), "templates", "template_entry_level.docx")
+  ),
+  professional: fs.existsSync(
+    path.join(process.cwd(), "templates", "template_professional.docx")
+  ),
+}
   });
 });
 
