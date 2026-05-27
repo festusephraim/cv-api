@@ -1355,6 +1355,7 @@ app.post("/generate-cv", async (req, res) => {
   try {
 
     console.log("STEP 1: Route hit");
+    console.log("RAW BODY:", JSON.stringify(req.body, null, 2));
 
     let requestBody;
 
@@ -1368,13 +1369,24 @@ app.post("/generate-cv", async (req, res) => {
       });
     }
 
-    const incomingError = validateIncomingBody(requestBody);
-    if (incomingError) {
-      return res.status(400).json({
-        success: false,
-        error: incomingError,
-      });
-    }
+    console.log("STEP 2: Before validation");
+
+const incomingError = validateIncomingBody(requestBody);
+
+console.log("STEP 3: After validation");
+
+if (incomingError) {
+  return res.status(400).json({
+    success: false,
+    error: incomingError,
+  });
+}
+
+console.log("STEP 4: Before normalization");
+
+const rawInput = normalizeIncomingPayload(requestBody);
+
+console.log("STEP 5: After normalization");
 
 const rawInput = normalizeIncomingPayload(requestBody);
 
