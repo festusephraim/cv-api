@@ -338,6 +338,7 @@ if (reference_choice === "included" && !builtReferenceDetails) {
   end: item?.currently_working_here ? "" : safeString(item?.end || item?.end_date),
   role_summary: "",
   tasks: splitLinesToArray(item?.tasks || item?.what_did_you_do_in_this_role, 5),
+  edu_competencies: splitLinesToArray(item?.edu_competencies, 4),
 }));
 
   const mappedEducation = education.map((item) => ({
@@ -482,6 +483,7 @@ function cleanEducationArray(education) {
       end: safeString(item?.end),
       end_or_present: endOrPresent(item?.end),
       edu_detail: safeString(item?.edu_detail),
+      edu_competencies: normaliseBulletArray(item?.edu_competencies, 4),
     }))
     .filter((item) => item.degree || item.school);
 }
@@ -539,23 +541,28 @@ function preserveSectionDatesFromRawInput(parsed, rawInput) {
   const rawProjects = safeArray(rawInput?.projects);
 
   parsed.experience = parsedExperience.map((item, index) => ({
-    ...item,
-    start: safeString(rawExperience[index]?.start),
-    end: safeString(rawExperience[index]?.end),
-  }));
+  ...item,
+  start: safeString(rawExperience[index]?.start),
+  end: rawExperience[index]?.currently_working_here
+    ? ""
+    : safeString(rawExperience[index]?.end),
+}));
 
   parsed.education = parsedEducation.map((item, index) => ({
-    ...item,
-    start: safeString(rawEducation[index]?.start),
-    end: safeString(rawEducation[index]?.end),
-  }));
+  ...item,
+  start: safeString(rawEducation[index]?.start),
+  end: rawEducation[index]?.currently_studying_here
+    ? ""
+    : safeString(rawEducation[index]?.end),
+}));
 
   parsed.projects = parsedProjects.map((item, index) => ({
-    ...item,
-    start: safeString(rawProjects[index]?.start),
-    end: safeString(rawProjects[index]?.end),
-  }));
-
+  ...item,
+  start: safeString(rawProjects[index]?.start),
+  end: rawProjects[index]?.currently_working_on_this_project
+    ? ""
+    : safeString(rawProjects[index]?.end),
+}));
   return parsed;
 }
 
@@ -1229,21 +1236,34 @@ const CV_JSON_SCHEMA = {
       },
 
       education: {
-        type: "array",
-        items: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            degree: { type: "string" },
-            school: { type: "string" },
-            location: { type: "string" },
-            start: { type: "string" },
-            end: { type: "string" },
-            edu_detail: { type: "string" },
-          },
-          required: ["degree", "school", "location", "start", "end", "edu_detail"],
-        },
-      },
+  type: "array",
+  items: {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+  degree: { type: "string" },
+  school: { type: "string" },
+  location: { type: "string" },
+  start: { type: "string" },
+  end: { type: "string" },
+  edu_detail: { type: "string" },
+
+  edu_competencies: {
+    type: "array",
+    items: { type: "string" },
+  },
+},
+required: [
+  "degree",
+  "school",
+  "location",
+  "start",
+  "end",
+  "edu_detail",
+  "edu_competencies"
+],
+  },
+},
 
       certifications: {
         type: "array",
@@ -1513,22 +1533,24 @@ const referenceText = buildReferenceText(
       PROFESSIONAL_SUMMARY: data.professional_summary || "",
       SKILLS_LINE: buildSkillsLine(data.skills) || "",
 
-      HAS_EXPERIENCE: data.experience.length > 0,
+      HAS_EXPERIENCE: data.experience.length ? [1] : [],
       experience: data.experience,
 
-      HAS_PROJECTS: data.projects.length > 0,
+      HAS_SKILLS: data.skills.length ? [1] : [],
+
+      HAS_PROJECTS: data.projects.length ? [1] : [],
       projects: data.projects,
 
-      HAS_EDUCATION: data.education.length > 0,
+      HAS_EDUCATION: data.education.length ? [1] : [],
       education: data.education,
 
-      HAS_CERTIFICATIONS: data.certifications.length > 0,
+      HAS_CERTIFICATIONS: data.certifications.length ? [1] : [],
       certifications: data.certifications,
 
-      HAS_EXTRA: data.extra_sections.length > 0,
+      HAS_EXTRA: data.extra_sections.length ? [1] : [],
       extra_sections: data.extra_sections,
 
-      HAS_REFERENCE: Boolean(referenceText),
+      HAS_REFERENCE: referenceText ? [1] : [],
       REFERENCE_SECTION: referenceText || "",
 
       HAS_REFERENCES_LIST: rawInput.reference_entries.length > 0,
@@ -1564,7 +1586,8 @@ const referenceText = buildReferenceText(
         compression: "DEFLATE",
       });
   } catch (docError) {
-  console.error("Document render failed:", docError?.message || docError);
+  console.error("DOCUMENT ERROR FULL:");
+console.dir(docError, { depth: null });
 
   return res.status(500).json({
     success: false,
