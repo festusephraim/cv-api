@@ -314,7 +314,10 @@ function parseRequestBody(reqBody) {
 
 function normalizeIncomingPayload(body) {
   const basicInfo = body?.basic_information || {};
-  const workExperience = clampArray(safeArray(body?.experience), 3);
+  const workExperience = clampArray(
+  safeArray(body?.work_experience || body?.experience),
+  3
+);
   const education = clampArray(safeArray(body?.education), 3);
   const projects = clampArray(safeArray(body?.projects_research), 3);
 
@@ -536,9 +539,13 @@ function preserveSectionDatesFromRawInput(parsed, rawInput) {
   const parsedEducation = safeArray(parsed?.education);
   const parsedProjects = safeArray(parsed?.projects);
 
-  const rawExperience = safeArray(rawInput?.experience);
+  const rawExperience = safeArray(
+  rawInput?.work_experience || rawInput?.experience
+);
   const rawEducation = safeArray(rawInput?.education);
-  const rawProjects = safeArray(rawInput?.projects);
+ const rawProjects = safeArray(
+  rawInput?.projects_research || rawInput?.projects
+);
 
   parsed.experience = parsedExperience.map((item, index) => ({
   ...item,
