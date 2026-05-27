@@ -314,47 +314,51 @@ function parseRequestBody(reqBody) {
 
 function normalizeIncomingPayload(body) {
   const basicInfo = body?.basic_information || {};
-  const workExperience = clampArray(safeArray(body?.work_experience), 3);
+  const workExperience = clampArray(safeArray(body?.experience), 3);
   const education = clampArray(safeArray(body?.education), 3);
   const projects = clampArray(safeArray(body?.projects_research), 3);
 
-  const referenceEntries = cleanReferenceEntries(body?.references?.reference_entries);
-  const builtReferenceDetails = buildReferenceDetailsFromEntries(referenceEntries);
+  const referenceEntries = cleanReferenceEntries(body?.references?.reference_entries || body?.reference_entries);
+const builtReferenceDetails = buildReferenceDetailsFromEntries(referenceEntries);
 
-  let reference_choice = body?.references?.include_references
-  ? "included"
-  : "available";
+let reference_choice =
+  body?.references?.include_references ?? body?.reference_choice
+    ? "included"
+    : "available";
 
-  if (reference_choice === "included" && !builtReferenceDetails) {
-    reference_choice = "available";
-  }
+if (reference_choice === "included" && !builtReferenceDetails) {
+  reference_choice = "available";
+}
 
   const mappedExperience = workExperience.map((item) => ({
-    title: safeString(item?.job_title),
-    company: safeString(item?.company),
-    location: safeString(item?.location),
-    start: safeString(item?.start_date),
-    end: item?.currently_working_here ? "" : safeString(item?.end_date),
-    role_summary: "",
-    tasks: splitLinesToArray(item?.what_did_you_do_in_this_role, 5),
-  }));
+  title: safeString(item?.title || item?.job_title),
+  company: safeString(item?.company),
+  location: safeString(item?.location),
+  start: safeString(item?.start || item?.start_date),
+  end: item?.currently_working_here ? "" : safeString(item?.end || item?.end_date),
+  role_summary: "",
+  tasks: splitLinesToArray(item?.tasks || item?.what_did_you_do_in_this_role, 5),
+}));
 
   const mappedEducation = education.map((item) => ({
-    degree: safeString(item?.degree_qualification),
-    school: safeString(item?.school),
-    location: safeString(item?.location),
-    start: safeString(item?.start_date),
-    end: item?.currently_studying_here ? "" : safeString(item?.end_date),
-    edu_detail: safeString(item?.grade_result),
-  }));
+  degree: safeString(item?.degree || item?.degree_qualification),
+  school: safeString(item?.school),
+  location: safeString(item?.location),
+  start: safeString(item?.start || item?.start_date),
+  end: item?.currently_studying_here ? "" : safeString(item?.end || item?.end_date),
+  edu_detail: safeString(item?.edu_detail || item?.grade_result),
+}));
 
   const mappedProjects = projects.map((item) => ({
-    project_title: safeString(item?.project_title),
-    project_description: safeString(item?.project_description),
-    start: safeString(item?.start_date),
-    end: item?.currently_working_on_this_project ? "" : safeString(item?.end_date),
-    project_tasks: splitLinesToArray(item?.what_did_you_do_in_this_project, 5),
-  }));
+  project_title: safeString(item?.project_title),
+  project_description: safeString(item?.project_description),
+  start: safeString(item?.start || item?.start_date),
+  end: item?.currently_working_on_this_project ? "" : safeString(item?.end || item?.end_date),
+  project_tasks: splitLinesToArray(
+    item?.project_tasks || item?.what_did_you_do_in_this_project,
+    5
+  ),
+}));
 
   const extra_sections = [];
 
@@ -418,18 +422,18 @@ if (safeString(body?.additional_information)) {
     projects: mappedProjects,
     education: mappedEducation,
 
-    certifications: safeString(body?.certifications_awards)
-      ? safeString(body.certifications_awards)
-          .split(/\r?\n|,/)
-          .map((item) => safeString(item))
-          .filter(Boolean)
-      : [],
+    certifications: safeString(body?.certifications || body?.certifications_awards)
+  ? safeString(body.certifications || body.certifications_awards)
+      .split(/\r?\n|,/)
+      .map((item) => safeString(item))
+      .filter(Boolean)
+  : [],
 
     extra_sections,
 
-    reference_choice: body?.references?.include_references ? "included" : "available",
-    reference_details: builtReferenceDetails,
-    reference_entries: referenceEntries,
+    reference_choice: reference_choice,
+    reference_details: builtReferenceDetails || safeString(body?.reference_details),
+    reference_entries: referenceEntries || safeArray(body?.reference_entries),
   };
 }
 
@@ -1293,23 +1297,25 @@ const CV_JSON_SCHEMA = {
  */
 
 function determineTemplateType(rawInput) {
-  const experience = safeArray(rawInput?.work_experience);
+  const experience = safeArray(rawInput?.experience);
   const hasExperience = experience.some(
-  e => safeString(e?.job_title) || safeString(e?.company)
+  e => safeString(e?.title) || safeString(e?.company)
 );
 
   const purpose = safeString(rawInput?.document_purpose).toLowerCase();
 
   // Strong signals for entry level
   const entryLevelKeywords = [
-    "internship",
-    "siwes",
-    "student",
-    "graduate",
-    "fresh graduate",
-    "entry",
-    "no experience"
-  ];
+  "internship",
+  "siwes",
+  "student",
+  "undergraduate",
+  "graduate",
+  "fresh graduate",
+  "entry level",
+  "entry",
+  "no experience"
+];
 
   const isEntryByPurpose = entryLevelKeywords.some((k) =>
     purpose.includes(k)
