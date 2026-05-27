@@ -320,15 +320,11 @@ function normalizeIncomingPayload(body) {
   const basicInfo = body?.basic_information || {};
   const workExperience = safeArray(
   body?.work_experience || body?.experience
-).filter(item =>
-  safeString(item?.job_title || item?.title || item?.company)
-);
-  const education = safeArray(body?.education).filter(item =>
-  safeString(item?.degree_qualification || item?.degree || item?.school)
-);
-  const projects = safeArray(body?.projects_research).filter(item =>
-  safeString(item?.project_title)
-);
+).filter(hasMeaningfulContent);
+
+  const education = safeArray(body?.education).filter(hasMeaningfulContent);
+  const projects = safeArray(body?.projects_research || body?.projects)
+  .filter(hasMeaningfulContent);
 
   const referenceEntries = cleanReferenceEntries(body?.references?.reference_entries || body?.reference_entries);
 const builtReferenceDetails = buildReferenceDetailsFromEntries(referenceEntries);
@@ -535,6 +531,16 @@ function cleanExtraSections(extraSections) {
       section_content: safeString(item?.section_content),
     }))
     .filter((item) => item.section_content);
+}
+
+function hasMeaningfulContent(obj) {
+  if (!obj || typeof obj !== "object") return false;
+
+  return Object.values(obj).some(value => {
+    if (Array.isArray(value)) return value.length > 0;
+    if (typeof value === "string") return value.trim().length > 0;
+    return Boolean(value);
+  });
 }
 
 function cleanStructuredData(data) {
