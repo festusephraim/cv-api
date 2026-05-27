@@ -10,6 +10,7 @@ const { OpenAI } = require("openai");
 
 const { S3Client, PutObjectCommand, GetObjectCommand } = require("@aws-sdk/client-s3");
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
+const { ListObjectsV2Command } = require("@aws-sdk/client-s3");
 
 const app = express();
 
@@ -42,9 +43,6 @@ app.use(apiLimiter);
 const PORT = Number(process.env.PORT || 3001);
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 const NODE_ENV = process.env.NODE_ENV || "development";
-
-const TEMPLATE_PATH = path.join(process.cwd(), "templates", "cv-template.docx");
-
 
 if (!process.env.OPENAI_API_KEY) {
   console.error("Missing OPENAI_API_KEY in environment variables.");
@@ -258,22 +256,35 @@ function cleanDisplayName(value) {
     .join(" ");
 }
 
-let fileCounter = 0;
-
-function generateUniqueFileName(fullName) {
+async function generateFileName(s3, bucket, fullName) {
   const cleanName = cleanDisplayName(fullName);
+  const baseKeyPrefix = `generated-cv/${cleanName} CV`;
 
-  let fileName;
+  const list = await s3.send(
+    new ListObjectsV2Command({
+      Bucket: bucket,
+      Prefix: baseKeyPrefix,
+    })
+  );
 
-  if (fileCounter === 0) {
-    fileName = `${cleanName} CV.docx`;
-  } else {
-    fileName = `${cleanName} CV (${fileCounter}).docx`;
+  const existing = (list.Contents || [])
+    .map((obj) => obj.Key)
+    .filter(Boolean);
+
+  if (existing.length === 0) {
+    return `${cleanName} CV.docx`;
   }
 
-  fileCounter++;
+  let maxIndex = 0;
 
-  return fileName;
+  for (const key of existing) {
+    const match = key.match(/\((\d+)\)\.docx$/);
+    if (match) {
+      maxIndex = Math.max(maxIndex, parseInt(match[1], 10));
+    }
+  }
+
+  return `${cleanName} CV (${maxIndex + 1}).docx`;
 }
 
 function parseRequestBody(reqBody) {
@@ -583,6 +594,107 @@ IMPORTANT CONTEXT:
 - Focus on recruiter readability, clarity, credibility, realism, and professional presentation
 - The final CV must sound professionally written, human, realistic, recruiter-readable, and appropriate for the candidate’s actual career stage
 
+ENTRY LEVEL TEMPLATE
+Use this when:
+- student, intern, SIWES, NYSC, fresh graduate
+- limited or no formal work experience
+- experience is mostly academic, volunteer, training, or project-based
+
+PROFESSIONAL TEMPLATE
+Use this when:
+- clear job history exists
+- candidate has real workplace responsibility
+- multiple roles or structured employment experience
+
+STRICT RULE
+- Only ONE template is active per CV
+- Do NOT mix tones
+- Do NOT “upgrade” entry-level candidates
+- Do NOT “simplify” professional candidates
+
+ENTRY LEVEL TEMPLATE
+- Used for students, interns, SIWES, fresh graduates, or limited experience candidates
+- Writing must be SIMPLE, CLEAR, and LEARNING-ORIENTED
+- Do NOT exaggerate responsibility or seniority
+- Focus on:
+  - exposure to tasks
+  - participation in activities
+  - administrative or academic support
+  - teamwork and learning environments
+- Experience bullets must sound like TRAINING OR SUPPORT ROLES, not independent authority roles
+- Language must remain grounded and non-impressive
+- Avoid over-structured corporate phrasing
+
+ENTRY LEVEL TEMPLATE STYLE RULES
+- Keep language simple, clear, and learning-focused
+- Emphasise exposure, participation, and support work
+- Avoid strong authority tone
+- Experience must reflect:
+  - assistance
+  - learning
+  - observation
+  - supervision-based tasks
+  - academic or internship involvement
+- No inflated responsibility claims
+
+PROFESSIONAL TEMPLATE
+- Used for candidates with real job experience
+- Writing must reflect INDEPENDENT WORK, RESPONSIBILITY, AND WORKFLOW OWNERSHIP
+- Focus on:
+  - coordination of tasks
+  - management of processes
+  - execution of responsibilities
+  - workplace contribution
+- Experience bullets should show STRUCTURE, DECISION SUPPORT, AND OPERATIONAL INVOLVEMENT
+- Language can be slightly more advanced but must remain realistic and non-inflated
+
+PROFESSIONAL TEMPLATE STYLE RULES
+- Reflect independent work and responsibility
+- Show workflow ownership and coordination
+- Emphasise execution of tasks within real systems
+- Experience must reflect:
+  - responsibility
+  - coordination
+  - reporting
+  - operational contribution
+- Language can be structured but must remain realistic
+
+CORE WRITING STANDARD
+- Write like a recruiter preparing a real CV for hiring
+- Make the CV sound natural, grounded, and believable
+- Prioritise clarity over “impressive wording”
+- Never sound robotic or templated
+- Avoid exaggeration or inflated professionalism
+- Keep tone consistent with selected template
+
+HUMAN SOUNDING RULE (IMPORTANT)
+The CV must NOT feel:
+ - repetitive
+ - overly structured like AI output
+ - overly polished or artificial
+ - filled with generic phrases
+Instead:
+ - vary sentence structure naturally
+ - avoid repeated openings in bullets
+ - avoid filler adjectives
+ - keep writing practical and real-world based
+
+STRICT STYLE SEPARATION RULE
+- NEVER mix entry-level tone with professional-level tone
+- NEVER upgrade entry-level candidates into senior-sounding professionals
+- NEVER downgrade professional candidates into overly simple student-like language
+- Maintain correct tone consistency throughout the CV
+
+TEMPLATE SELECTION IS MANDATORY AND MUST BE BASED ONLY ON EXPLICIT USER INPUT.
+- If user input does not clearly show employment history:
+→ Default to ENTRY LEVEL TEMPLATE.
+
+- If user input contains 2 or more structured job roles with responsibilities:
+→ PROFESSIONAL TEMPLATE ONLY.
+
+- If unclear:
+→ Always choose ENTRY LEVEL TEMPLATE.
+
 CORE WRITING STANDARD:
 - Write like an experienced recruiter preparing a candidate for real hiring review
 - Make the candidate sound employable, credible, grounded, and professionally clear
@@ -592,6 +704,7 @@ CORE WRITING STANDARD:
 - Improve weak or awkward wording while maintaining truth and realism
 - Avoid robotic phrasing, exaggerated confidence, and empty corporate language
 - Every section should feel believable and operationally realistic
+- Tone must always match the selected template level and never drift into generic corporate phrasing.
 
 ANTI-GENERIC WRITING RULE:
 Avoid vague corporate buzzwords, inflated claims, AI-style filler language, and empty professionalism unless clearly supported by evidence.
@@ -711,6 +824,14 @@ HUMAN REALISM RULE:
 - Keep responsibilities proportional to the candidate’s actual level of experience
 - Junior candidates should sound capable and reliable, not executive-level
 
+HUMAN SOUNDING CONTROL:
+Every CV must pass this internal check:
+- If removed formatting, it should still read like a human wrote it in real workplace context
+- No sentence should feel like a template
+- No repeated sentence starters in same section
+- No over-consistent grammar patterns across bullets
+- Avoid symmetry in writing style across bullets
+
 INTERNSHIP AND ENTRY-LEVEL RULE:
 - If the document purpose is Internship or Academic, optimise the CV for student and early-career positioning
 - Do not penalise candidates for limited formal work experience
@@ -798,6 +919,11 @@ EXPERIENCE WRITING RULES:
 - Avoid repetitive bullet structures across multiple roles
 - Vary sentence structure naturally to improve readability
 - Provide at least three bullet points for each sections listing roles or experiences
+Bullets must explain:
+- what was done
+- what it supported
+- what process it contributed to
+- Avoid vague statements like: “worked in a fast-paced environment”
 
 SAFE IMPACT LANGUAGE:
 When metrics are unavailable, use realistic professional phrasing such as:
@@ -832,8 +958,18 @@ TRUTH PRESERVATION RULE:
 - Do not fabricate business outcomes or performance claims
 - Do not convert routine work into executive-level impact
 - Keep all content faithful to the user’s original information
+- Never invent:
+ - achievements, KPIs, tools, employers, dates, qualifications
+ - Do not upgrade responsibilities beyond input
+ - Keep all content strictly based on user data
+ - Improve clarity only, not facts
 
 PROFESSIONAL SUMMARY RULE:
+- Must match selected template
+- Must reflect actual level of experience
+- No self-praise language
+- Must sound realistic and role-specific
+Example style: “Administrative professional with experience supporting office coordination, record management, and customer communication in structured work environments”
 - Keep the summary concise, recruiter-friendly, specific and role-targeted based on job type (admin, HR, data etc)
 - Focus on:
   - type of experience
@@ -863,18 +999,70 @@ SKILLS RULE:
 - Avoid overloaded skill sections filled with generic soft skills
 - Keep skills aligned with the candidate’s actual experience and target role
 - Separate technical skills from workplace competencies where appropriate
+- Keep skills relevant and realistic
+- Avoid overloading with generic soft skills
+- Only include skills supported by input
+- Separate technical skills where needed
 
-ADDITIONAL INFORMATION RULE:
-- Additional information must be concise, structured, and CV-appropriate
-- Prefer short category-style entries instead of paragraph writing
-- Suitable content includes:
-  - Languages
-  - Volunteer experience
-  - Professional memberships
-  - Interests
-  - Availability
-  - Work authorisation
-- Format naturally for recruiter readability
+ADDITIONAL INFORMATION RULE
+- Additional information must be structured, short, and CV-ready. No paragraphs or storytelling.
+- This section must follow fixed formats depending on content type:
+- LANGUAGES FORMAT
+ - Always use this exact style:
+   - English (Fluent)
+   - Hausa (Conversational)
+- Rules:
+- Each language on a new line
+- Always include proficiency level in brackets
+- No explanations, no extra words
+- VOLUNTEER EXPERIENCE FORMAT
+  - Always use action-based bullet style:
+   - Assisted in community health outreach activities
+   - Participated in student-led laboratory awareness campaigns
+   - Supported administrative tasks during outreach programmes
+- Rules:
+- Each line must start with a strong action verb:
+- Assisted, Supported, Participated, Coordinated, Organized, Documented
+- Each bullet must describe a real task/activity
+- No storytelling or explanations
+- No “during which”, “where”, or descriptive sentences
+- MEMBERSHIP / AFFILIATION FORMAT
+  - Use strict identity format only:
+   - Member, Nigerian Institute of Management
+   - Member, Student Research Association
+-Rules:
+- No descriptions
+- No sentences
+- Format must be: “Member, Organisation Name”
+
+ADDITIONAL INFORMATION SECTION MUST FOLLOW STRICT OUTPUT SHAPE RULE:
+
+LANGUAGES:
+- One line per language
+- Format: Language (Proficiency)
+- No explanations
+- No extra words
+
+VOLUNTEER EXPERIENCE:
+- Bullet only format
+- Each line must begin with action verb
+- No context phrases
+- No storytelling
+- Each bullet must be independent
+
+MEMBERSHIP:
+- One line per entry only
+- Format: Member, Organisation Name
+- No verbs
+- No punctuation changes allowed
+
+DO NOT MIX FORMATS BETWEEN CATEGORIES
+GENERAL RULE
+- Keep entries short and structured
+- No paragraphs or long explanations
+- No repetition of information already in other CV sections
+- No narrative writing
+- Output must look like a real CV, not a generated text summary
 
 Good examples:
 - Languages: English, Hausa
@@ -926,13 +1114,39 @@ Before returning the final output, ensure:
 - The wording feels believable for the candidate’s actual experience level
 - The final CV clearly communicates what the candidate can realistically contribute in a workplace
 
+FINAL OUTPUT STABILITY RULE:
+- Do not change section order once CV structure is created
+- Do not merge sections
+- Do not skip sections even if empty
+- If missing data, return empty string or empty array
+- Never generate extra sections not requested
+
+DUAL LAYER OUTPUT MODE:
+
+Every CV must satisfy two simultaneous layers:
+
+1. ATS LAYER:
+- keyword clarity
+- structured formatting
+- role-relevant terms
+- clean action verbs
+
+2. HUMAN RECRUITER LAYER:
+- natural sentence variation
+- realistic tone
+- believable workplace phrasing
+- no robotic structure
+
+If both layers conflict:
+→ prioritize HUMAN RECRUITER LAYER while preserving ATS keywords naturally.
+
 USER INPUT:
 ${JSON.stringify(rawInput, null, 2)}
 `.trim();
 }
 
-function ensureTemplateExists() {
-  return fs.existsSync(TEMPLATE_PATH);
+function ensureTemplateExists(templatePath) {
+  return fs.existsSync(templatePath);
 }
 
 /**
@@ -1076,12 +1290,41 @@ const CV_JSON_SCHEMA = {
  * ----------------------------------------
  */
 
+function determineTemplateType(rawInput) {
+  const experience = safeArray(rawInput?.experience);
+  const hasExperience = experience.length > 0;
+
+  const purpose = safeString(rawInput?.document_purpose).toLowerCase();
+
+  // Strong signals for entry level
+  const entryLevelKeywords = [
+    "internship",
+    "siwes",
+    "student",
+    "graduate",
+    "fresh graduate",
+    "entry",
+    "no experience"
+  ];
+
+  const isEntryByPurpose = entryLevelKeywords.some((k) =>
+    purpose.includes(k)
+  );
+
+  // Rule logic (simple but effective)
+  if (!hasExperience || isEntryByPurpose) {
+    return "entry";
+  }
+
+  return "professional";
+}
+
 app.get("/", (req, res) => {
   return res.status(200).json({
     success: true,
     message: "CV API is running",
     environment: NODE_ENV,
-    template_exists: ensureTemplateExists(),
+    template_exists: true,
   });
 });
 
@@ -1090,7 +1333,7 @@ app.get("/api/health", (req, res) => {
     success: true,
     message: "Server is healthy",
     environment: NODE_ENV,
-    template_exists: ensureTemplateExists(),
+    template_exists: true,
   });
 });
 
@@ -1117,14 +1360,22 @@ app.post("/generate-cv", async (req, res) => {
       });
     }
 
-    if (!ensureTemplateExists()) {
+const rawInput = normalizeIncomingPayload(requestBody);
+
+const templateType = determineTemplateType(rawInput);
+
+const TEMPLATE_PATH =
+  templateType === "entry"
+    ? path.join(process.cwd(), "templates", "template_entry_level.docx")
+    : path.join(process.cwd(), "templates", "template_professional.docx");
+
+    if (!fs.existsSync(TEMPLATE_PATH)) {
       return res.status(500).json({
         success: false,
-        error: "Template file not found: templates/cv-template.docx",
+        error: "Template file not found: " + TEMPLATE_PATH,
       });
     }
 
-    const rawInput = normalizeIncomingPayload(requestBody);
     const prompt = buildPrompt(rawInput);
 
     let completion;
@@ -1176,7 +1427,7 @@ app.post("/generate-cv", async (req, res) => {
       });
     }
 
-    const content = completion.output_text;
+    const content = completion?.output_text || completion?.output?.[0]?.content?.[0]?.text;
 
     if (!content) {
       return res.status(500).json({
@@ -1234,7 +1485,7 @@ const referenceText = buildReferenceText(
       references_list: rawInput.reference_entries,
     };
 
-    if (NODE_ENV !== "production") {
+    if (NODE_ENV !== "development") {
       console.log("NORMALIZED INPUT:");
       console.dir(rawInput, { depth: null });
       console.log("RENDER DATA:");
@@ -1274,7 +1525,7 @@ const bucket = process.env.AWS_BUCKET_NAME;
 
 console.log("BUCKET VALUE:", bucket);
 
-const fileName = generateUniqueFileName(data.full_name);
+const fileName = await generateFileName(s3, bucket, data.full_name);
 const s3Key = `generated-cv/${fileName}`;
 
 try {
