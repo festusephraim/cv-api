@@ -461,6 +461,24 @@ function cleanExperienceArray(experience) {
     .filter((item) => item.title || item.company || item.tasks.length);
 }
 
+function cleanEducationArray(education) {
+  return clampArray(safeArray(education), 3)
+    .map((item) => ({
+      degree: safeString(item?.degree),
+      school: safeString(item?.school),
+      location: safeString(item?.location),
+      start: safeString(item?.start),
+      end: safeString(item?.end),
+      end_or_present: endOrPresent(item?.end),
+      edu_detail: safeString(item?.edu_detail),
+
+      edu_competencies: normaliseBulletArray(
+        item?.edu_competencies,
+        5
+      ),
+    }));
+}
+
 function cleanProjectsArray(projects) {
   return clampArray(safeArray(projects), 4)
     .map((item) => ({
@@ -480,22 +498,6 @@ function cleanProjectsArray(projects) {
         item.project_tasks.length
     );
 }
-
-return clampArray(safeArray(education), 3)
-  .map((item) => ({
-    degree: safeString(item?.degree),
-    school: safeString(item?.school),
-    location: safeString(item?.location),
-    start: safeString(item?.start),
-    end: safeString(item?.end),
-    end_or_present: endOrPresent(item?.end),
-    edu_detail: safeString(item?.edu_detail),
-
-    edu_competencies: normaliseBulletArray(
-      item?.edu_competencies,
-      5
-    ),
-  }))
 
 function cleanCertificationsArray(certifications) {
   return clampArray(safeArray(certifications), 8)
@@ -1236,33 +1238,33 @@ const CV_JSON_SCHEMA = {
       },
 
       education: {
+  type: "array",
+  items: {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      degree: { type: "string" },
+      school: { type: "string" },
+      location: { type: "string" },
+      start: { type: "string" },
+      end: { type: "string" },
+      edu_detail: { type: "string" },
+      edu_competencies: {
         type: "array",
-        items: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            degree: { type: "string" },
-            school: { type: "string" },
-            location: { type: "string" },
-            start: { type: "string" },
-            end: { type: "string" },
-            edu_detail: { type: "string" },
-            edu_competencies: {
-              type: "array",
-              items: { type: "string" }
+        items: { type: "string" }
+      }
+    },
+    required: [
+      "degree",
+      "school",
+      "location",
+      "start",
+      "end",
+      "edu_detail",
+      "edu_competencies"
+    ]
   }
 },
-          required: [
-  "degree",
-  "school",
-  "location",
-  "start",
-  "end",
-  "edu_detail",
-  "edu_competencies",
-],
-        },
-      },
 
       certifications: {
         type: "array",
