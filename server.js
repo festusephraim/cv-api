@@ -315,7 +315,6 @@ function normalizeIncomingPayload(body) {
   if (reference_choice === "included" && !builtReferenceDetails) {
     reference_choice = "available";
   }
-
   const mappedExperience = workExperience.map((item) => ({
   title: safeString(item?.job_title),
   company: safeString(item?.company),
