@@ -316,18 +316,20 @@ function normalizeIncomingPayload(body) {
     reference_choice = "available";
   }
 
-  const mappedEducation = education.map((item) => ({
+  const shouldUseEduCompetencies =
+  mappedExperience.length < 2;
+
+const mappedEducation = education.map((item) => ({
   degree: safeString(item?.degree_qualification),
   school: safeString(item?.school),
   location: safeString(item?.location),
   start: safeString(item?.start_date),
   end: item?.currently_studying_here ? "" : safeString(item?.end_date),
   edu_detail: safeString(item?.grade_result),
-  edu_competencies: shouldUseEduCompetencies ? [] : [],
+
+  edu_competencies: [],
 }));
 
-  const shouldUseEduCompetencies =
-  mappedExperience.length < 2;
 
   const mappedProjects = projects.map((item) => ({
     project_title: safeString(item?.project_title),
