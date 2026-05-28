@@ -316,7 +316,17 @@ function normalizeIncomingPayload(body) {
     reference_choice = "available";
   }
 
-  const shouldUseEduCompetencies =
+  const mappedExperience = workExperience.map((item) => ({
+  title: safeString(item?.job_title),
+  company: safeString(item?.company),
+  location: safeString(item?.location),
+  start: safeString(item?.start_date),
+  end: item?.currently_working_here ? "" : safeString(item?.end_date),
+  role_summary: "",
+  tasks: splitLinesToArray(item?.what_did_you_do_in_this_role, 5),
+}));
+
+const shouldUseEduCompetencies =
   mappedExperience.length < 2;
 
 const mappedEducation = education.map((item) => ({
@@ -330,14 +340,13 @@ const mappedEducation = education.map((item) => ({
   edu_competencies: [],
 }));
 
-
-  const mappedProjects = projects.map((item) => ({
-    project_title: safeString(item?.project_title),
-    project_description: safeString(item?.project_description),
-    start: safeString(item?.start_date),
-    end: item?.currently_working_on_this_project ? "" : safeString(item?.end_date),
-    project_tasks: splitLinesToArray(item?.what_did_you_do_in_this_project, 5),
-  }));
+const mappedProjects = projects.map((item) => ({
+  project_title: safeString(item?.project_title),
+  project_description: safeString(item?.project_description),
+  start: safeString(item?.start_date),
+  end: item?.currently_working_on_this_project ? "" : safeString(item?.end_date),
+  project_tasks: splitLinesToArray(item?.what_did_you_do_in_this_project, 5),
+}));
 
   const extra_sections = [];
 
