@@ -352,46 +352,95 @@ const mappedProjects = projects.map((item) => ({
 if (safeString(body?.additional_information)) {
   const rawInfo = safeString(body.additional_information);
 
-  const formattedItems = rawInfo
-    .split(/\r?\n|;/)
-    .map((item) => safeString(item))
-    .filter(Boolean)
-    .map((item) => {
-      const lower = item.toLowerCase();
+  const lines = rawInfo
+    .split(/\r?\n/)
+    .map((line) => safeString(line))
+    .filter(Boolean);
 
-      if (
-        lower.startsWith("languages") &&
-        item.includes(":")
-      ) {
-        const [label, values] = item.split(":");
+  const languageItems = [];
+  const volunteerItems = [];
+  const membershipItems = [];
+  const generalItems = [];
 
-        const cleanedValues = values
-          .split(",")
-          .map((v) => safeString(v))
-          .filter(Boolean)
-          .join(" • ");
+  lines.forEach((line) => {
+    const lower = line.toLowerCase();
 
-        return `${label.trim()}: ${cleanedValues}`;
-      }
+    // LANGUAGES
+    if (lower.startsWith("languages:")) {
+      const values = line.split(":")[1] || "";
 
-      if (
-        lower.includes("volunteer") &&
-        !item.includes(":")
-      ) {
-        return `Volunteer Experience: ${
-          item.replace(/volunteer experience/i, "").trim() ||
-          "Available upon request"
-        }`;
-      }
+      values
+        .split(",")
+        .map((item) => safeString(item))
+        .filter(Boolean)
+        .forEach((lang) => {
+          languageItems.push(lang);
+        });
 
-      return item;
-    });
+      return;
+    }
 
-  extra_sections.push({
-    section_title: "Additional Information",
-    items: formattedItems,
-    section_content: "",
+    // MEMBERSHIP
+    if (
+      lower.startsWith("member,") ||
+      lower.startsWith("membership:")
+    ) {
+      membershipItems.push(
+        line.replace(/^membership:/i, "").trim()
+      );
+
+      return;
+    }
+
+    // VOLUNTEER
+    if (
+      lower.includes("volunteer") ||
+      lower.includes("outreach") ||
+      lower.includes("community")
+    ) {
+      volunteerItems.push(line);
+
+      return;
+    }
+
+    generalItems.push(line);
   });
+
+  // LANGUAGES SECTION
+  if (languageItems.length) {
+    extra_sections.push({
+      section_title: "Languages",
+      items: languageItems,
+      section_content: "",
+    });
+  }
+
+  // VOLUNTEER SECTION
+  if (volunteerItems.length) {
+    extra_sections.push({
+      section_title: "Volunteer Experience",
+      items: volunteerItems,
+      section_content: "",
+    });
+  }
+
+  // MEMBERSHIP SECTION
+  if (membershipItems.length) {
+    extra_sections.push({
+      section_title: "Membership",
+      items: membershipItems,
+      section_content: "",
+    });
+  }
+
+  // GENERAL EXTRA INFO
+  if (generalItems.length) {
+    extra_sections.push({
+      section_title: "Additional Information",
+      items: generalItems,
+      section_content: "",
+    });
+  }
 }
 
   return {
