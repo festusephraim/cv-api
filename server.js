@@ -10,7 +10,6 @@ const { OpenAI } = require("openai");
 
 const { S3Client, PutObjectCommand, GetObjectCommand } = require("@aws-sdk/client-s3");
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
-const { ListObjectsV2Command } = require("@aws-sdk/client-s3");
 
 const app = express();
 
@@ -43,6 +42,9 @@ app.use(apiLimiter);
 const PORT = Number(process.env.PORT || 3001);
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 const NODE_ENV = process.env.NODE_ENV || "development";
+
+const TEMPLATE_PATH = path.join(process.cwd(), "templates", "cv-template.docx");
+
 
 if (!process.env.OPENAI_API_KEY) {
   console.error("Missing OPENAI_API_KEY in environment variables.");
@@ -92,54 +94,24 @@ function clampArray(arr, max) {
   return Array.isArray(arr) ? arr.slice(0, max) : [];
 }
 
-function findMatchingRaw(rawList, item, index) {
-  const list = safeArray(rawList);
-
-  // 1. exact match
-  let match = list.find(raw =>
-    safeString(raw?.job_title || raw?.title) === safeString(item?.title) &&
-    safeString(raw?.company) === safeString(item?.company)
-  );
-
-  if (match) return match;
-
-  // 2. normalized match
-  const targetTitle = normalizeKey(item?.title);
-  const targetCompany = normalizeKey(item?.company);
-
-  match = list.find(raw =>
-    normalizeKey(raw?.job_title || raw?.title) === targetTitle &&
-    normalizeKey(raw?.company) === targetCompany
-  );
-
-  if (match) return match;
-
-  // 3. fallback by index (very useful in ordered CVs)
-  return list[index] || null;
-}
-
 function normaliseReferenceChoice(value) {
-  const cleaned = safeString(value).toLowerCase().trim();
+  const cleaned = safeString(value).toLowerCase();
 
-  if (!cleaned) return "available";
+  if (cleaned === "include full references in my cv") return "included";
 
-  const includedSignals = [
-    "include full references in my cv",
-    "include references",
-    "full references",
-  ];
+  if (
+    cleaned === "use ‘references available upon request’" ||
+    cleaned === "use 'references available upon request'" ||
+    cleaned === "use references available upon request" ||
+    cleaned === "references available upon request" ||
+    cleaned === "available"
+  ) {
+    return "available";
+  }
 
-  const availableSignals = [
-    "use references available upon request",
-    "references available upon request",
-    "available",
-  ];
-
-  if (includedSignals.includes(cleaned)) return "included";
-  if (availableSignals.includes(cleaned)) return "available";
   if (cleaned === "none") return "none";
 
-  if (["included", "available", "none"].includes(cleaned)) {
+  if (cleaned === "included" || cleaned === "available" || cleaned === "none") {
     return cleaned;
   }
 
@@ -168,7 +140,7 @@ function buildSkillsLine(skills) {
   return safeArray(skills)
     .map((item) => safeString(item))
     .filter(Boolean)
-    .join(", ");
+    .join(" • ");
 }
 
 function endOrPresent(value) {
@@ -258,7 +230,7 @@ function buildReferenceText(referenceChoice, referenceDetails) {
     case "none":
       return "";
     default:
-      return "";
+      return "References available upon request";
   }
 }
 
@@ -286,209 +258,139 @@ function cleanDisplayName(value) {
     .join(" ");
 }
 
-async function generateFileName(s3, bucket, fullName) {
+let fileCounter = 0;
+
+function generateUniqueFileName(fullName) {
   const cleanName = cleanDisplayName(fullName);
-  
-  const list = await s3.send(
-  new ListObjectsV2Command({
-    Bucket: bucket,
-    Prefix: `generated-cv/${cleanName} CV`,
-  })
-);
 
-  const existing = (list.Contents || [])
-  .map((obj) => obj.Key)
-  .filter(Boolean)
-  .filter((key) => key.startsWith(`generated-cv/${cleanName} CV`));
+  let fileName;
 
-  if (existing.length === 0) {
-    return `generated-cv/${cleanName} CV.docx`;
+  if (fileCounter === 0) {
+    fileName = `${cleanName} CV.docx`;
+  } else {
+    fileName = `${cleanName} CV (${fileCounter}).docx`;
   }
 
-  let maxIndex = 0;
+  fileCounter++;
 
-  for (const key of existing) {
-    const match = key.split("/").pop().match(/\((\d+)\)\.docx$/);
-    if (match) {
-      maxIndex = Math.max(maxIndex, parseInt(match[1], 10));
-    }
-  }
-
-  return `generated-cv/${cleanName} CV (${maxIndex + 1}).docx`;
+  return fileName;
 }
 
 function parseRequestBody(reqBody) {
-  const payload = reqBody?.raw_submission_json;
-
-  if (!payload) return reqBody;
-
-  if (typeof payload === "string") {
-    try {
-      return JSON.parse(payload);
-    } catch (err) {
-      throw {
-        statusCode: 400,
-        message: "Invalid raw_submission_json string",
-        details: err.message,
-      };
-    }
+  if (
+    reqBody?.raw_submission_json &&
+    typeof reqBody.raw_submission_json === "object" &&
+    !Array.isArray(reqBody.raw_submission_json)
+  ) {
+    return reqBody.raw_submission_json;
   }
 
-  if (typeof payload === "object") {
-    return payload;
+  if (typeof reqBody?.raw_submission_json === "string") {
+    try {
+      return JSON.parse(reqBody.raw_submission_json);
+    } catch (error) {
+      const customError = new Error("Invalid saved raw_submission_json");
+      customError.details = error.message;
+      customError.statusCode = 400;
+      throw customError;
+    }
   }
 
   return reqBody;
 }
 
-
 function normalizeIncomingPayload(body) {
   const basicInfo = body?.basic_information || {};
-  const workExperience = safeArray(
-  body?.work_experience || body?.experience
-).filter(hasMeaningfulContent);
+  const workExperience = clampArray(safeArray(body?.work_experience), 3);
+  const education = clampArray(safeArray(body?.education), 3);
+  const projects = clampArray(safeArray(body?.projects_research), 3);
 
-  const education = safeArray(body?.education).filter(hasMeaningfulContent);
-  const projects = safeArray(body?.projects_research || body?.projects)
-  .filter(hasMeaningfulContent);
+  const referenceEntries = cleanReferenceEntries(body?.references?.reference_entries);
+  const builtReferenceDetails = buildReferenceDetailsFromEntries(referenceEntries);
 
-  const referenceEntries = cleanReferenceEntries(body?.references?.reference_entries || body?.reference_entries);
-const builtReferenceDetails = buildReferenceDetailsFromEntries(referenceEntries);
+  let reference_choice = normaliseReferenceChoice(
+    body?.references_section_preference
+  );
 
-let reference_choice =
-  body?.references?.include_references === true
-    ? "included"
-    : "available";
+  if (reference_choice === "included" && !builtReferenceDetails) {
+    reference_choice = "available";
+  }
 
-if (reference_choice === "included" && !builtReferenceDetails) {
-  reference_choice = "available";
-}
-
-  const mappedExperience = workExperience.map((item) => ({
-  title: safeString(item?.title || item?.job_title),
-  company: safeString(item?.company),
+  const mappedEducation = education.map((item) => ({
+  degree: safeString(item?.degree_qualification),
+  school: safeString(item?.school),
   location: safeString(item?.location),
-
-  start: safeString(
-    item?.start ||
-    item?.start_date
-  ),
-
-  end: item?.currently_working_here
-    ? ""
-    : safeString(
-        item?.end ||
-        item?.end_date
-      ),
-
-  role_summary: safeString(
-  item?.role_summary ||
-  item?.job_summary ||
-  item?.summary ||
-  item?.responsibilities_summary ||
-  item?.what_you_did ||
-  item?.what_did_you_do_in_this_role
-),
-
-  tasks: splitLinesToArray(
-    item?.tasks ||
-    item?.what_did_you_do_in_this_role,
-    5
-  ),
-
-  edu_competencies: splitLinesToArray(
-    item?.edu_competencies,
-    4
-  ),
+  start: safeString(item?.start_date),
+  end: item?.currently_studying_here ? "" : safeString(item?.end_date),
+  edu_detail: safeString(item?.grade_result),
+  edu_competencies: shouldUseEduCompetencies ? [] : [],
 }));
 
   const mappedEducation = education.map((item) => ({
-  degree: safeString(item?.degree || item?.degree_qualification),
-  school: safeString(item?.school),
-  location: safeString(item?.location),
-
-  start: safeString(
-    item?.start || item?.start_date
-  ),
-
-  end: item?.currently_studying_here
-    ? ""
-    : safeString(
-        item?.end || item?.end_date
-      ),
-
-  edu_detail: safeString(
-    item?.edu_detail || item?.grade_result
-  ),
-
-  edu_competencies: splitLinesToArray(
-  item?.edu_competencies ||
-  item?.skills ||
-  item?.course_competencies ||
-  item?.learning_outcomes,
-  4
-),
-}));
+    degree: safeString(item?.degree_qualification),
+    school: safeString(item?.school),
+    location: safeString(item?.location),
+    start: safeString(item?.start_date),
+    end: item?.currently_studying_here ? "" : safeString(item?.end_date),
+    edu_detail: safeString(item?.grade_result),
+  }));
+  
+  const shouldUseEduCompetencies =
+  mappedExperience.length < 2;
 
   const mappedProjects = projects.map((item) => ({
-  project_title: safeString(item?.project_title),
-  project_description: safeString(item?.project_description),
-  start: safeString(item?.start || item?.start_date),
-  end: item?.currently_working_on_this_project ? "" : safeString(item?.end || item?.end_date),
-  project_tasks: splitLinesToArray(
-    item?.project_tasks || item?.what_did_you_do_in_this_project,
-    5
-  ),
-}));
+    project_title: safeString(item?.project_title),
+    project_description: safeString(item?.project_description),
+    start: safeString(item?.start_date),
+    end: item?.currently_working_on_this_project ? "" : safeString(item?.end_date),
+    project_tasks: splitLinesToArray(item?.what_did_you_do_in_this_project, 5),
+  }));
 
   const extra_sections = [];
 
 if (safeString(body?.additional_information)) {
   const rawInfo = safeString(body.additional_information);
 
-  const formattedAdditionalInfo = rawInfo
-  .split(/\r?\n|;/)
-  .map((item) => safeString(item))
-  .filter(Boolean)
-  .map((item) => {
-    const lower = item.toLowerCase();
+  const formattedItems = rawInfo
+    .split(/\r?\n|;/)
+    .map((item) => safeString(item))
+    .filter(Boolean)
+    .map((item) => {
+      const lower = item.toLowerCase();
 
-    if (
-      lower.startsWith("languages") &&
-      item.includes(":")
-    ) {
-      const [label, values] = item.split(":");
+      if (
+        lower.startsWith("languages") &&
+        item.includes(":")
+      ) {
+        const [label, values] = item.split(":");
 
-      const cleanedValues = values
-        .split(",")
-        .map((v) => safeString(v))
-        .filter(Boolean)
-        .join(" • ");
+        const cleanedValues = values
+          .split(",")
+          .map((v) => safeString(v))
+          .filter(Boolean)
+          .join(" • ");
 
-      return `${label.trim()}: ${cleanedValues}`;
-    }
+        return `${label.trim()}: ${cleanedValues}`;
+      }
 
-    if (
-      lower.includes("volunteer") &&
-      !item.includes(":")
-    ) {
-      return `Volunteer Experience: ${item.replace(/volunteer experience/i, "").trim() || "Available upon request"}`;
-    }
+      if (
+        lower.includes("volunteer") &&
+        !item.includes(":")
+      ) {
+        return `Volunteer Experience: ${
+          item.replace(/volunteer experience/i, "").trim() ||
+          "Available upon request"
+        }`;
+      }
 
-    return item;
-  })
-  .join("\n");
+      return item;
+    });
 
   extra_sections.push({
-  section_title: "Additional Information",
-
-  section_content: "",
-
-  items: formattedAdditionalInfo
-    .split(/\r?\n/)
-    .map((v) => safeString(v))
-    .filter(Boolean),
-});
+    section_title: "Additional Information",
+    items: formattedItems,
+    section_content: "",
+  });
 }
 
   return {
@@ -509,18 +411,18 @@ if (safeString(body?.additional_information)) {
     projects: mappedProjects,
     education: mappedEducation,
 
-    certifications: safeString(body?.certifications || body?.certifications_awards)
-  ? safeString(body.certifications || body.certifications_awards)
-      .split(/\r?\n|,/)
-      .map((item) => safeString(item))
-      .filter(Boolean)
-  : [],
+    certifications: safeString(body?.certifications_awards)
+      ? safeString(body.certifications_awards)
+          .split(/\r?\n|,/)
+          .map((item) => safeString(item))
+          .filter(Boolean)
+      : [],
 
     extra_sections,
 
-    reference_choice: reference_choice,
-    reference_details: builtReferenceDetails || safeString(body?.reference_details),
-    reference_entries: referenceEntries || safeArray(body?.reference_entries),
+    reference_choice,
+    reference_details: builtReferenceDetails,
+    reference_entries: referenceEntries,
   };
 }
 
@@ -536,13 +438,7 @@ function cleanExperienceArray(experience) {
       role_summary: safeString(item?.role_summary),
       tasks: normaliseBulletArray(item?.tasks, 5),
     }))
-    .filter((item) => {
-      return (
-        item.title ||
-        item.company ||
-        item.tasks.length > 0
-      );
-    });
+    .filter((item) => item.title || item.company || item.tasks.length);
 }
 
 function cleanProjectsArray(projects) {
@@ -555,7 +451,14 @@ function cleanProjectsArray(projects) {
       end_or_present: endOrPresent(item?.end),
       project_tasks: normaliseBulletArray(item?.project_tasks, 4),
     }))
-    .filter((item) => item.project_title || item.project_description);
+    .filter(
+      (item) =>
+        item.project_title ||
+        item.project_description ||
+        item.start ||
+        item.end ||
+        item.project_tasks.length
+    );
 }
 
 function cleanEducationArray(education) {
@@ -568,7 +471,11 @@ function cleanEducationArray(education) {
       end: safeString(item?.end),
       end_or_present: endOrPresent(item?.end),
       edu_detail: safeString(item?.edu_detail),
-      edu_competencies: normaliseBulletArray(item?.edu_competencies, 4),
+
+      edu_competencies: normaliseBulletArray(
+        item?.edu_competencies,
+        4
+      ),
     }))
     .filter((item) => item.degree || item.school);
 }
@@ -578,48 +485,23 @@ function cleanCertificationsArray(certifications) {
     .map((item) => safeString(item))
     .filter(Boolean);
 }
-function isMeaningfulArray(arr) {
-  return Array.isArray(arr) && arr.some(Boolean);
-}
 
 function cleanExtraSections(extraSections) {
   return clampArray(safeArray(extraSections), 6)
-    .map((item) => {
-      const items = Array.isArray(item?.items)
-        ? item.items
-            .map((v) => safeString(v))
-            .filter(Boolean)
-        : [];
-
-      return {
-        section_title: safeString(item?.section_title),
-
-        section_content: safeString(item?.section_content),
-
-        items,
-      };
-    })
-    .filter((item) => {
-      return (
-        item.section_title ||
+    .map((item) => ({
+      section_title: safeString(item?.section_title),
+      items: normaliseBulletArray(item?.items, 10),
+      section_content: safeString(item?.section_content),
+    }))
+    .filter(
+      (item) =>
         item.section_content ||
-        item.items.length > 0
-      );
-    });
-}
-
-function hasMeaningfulContent(obj) {
-  if (!obj || typeof obj !== "object") return false;
-
-  return Object.values(obj).some(value => {
-    if (Array.isArray(value)) return value.length > 0;
-    if (typeof value === "string") return value.trim().length > 0;
-    return Boolean(value);
-  });
+        (Array.isArray(item.items) && item.items.length > 0)
+    );
 }
 
 function cleanStructuredData(data) {
-    return {
+  return {
     full_name: safeString(data.full_name).toUpperCase(),
     address: safeString(data.address),
     phone: safeString(data.phone),
@@ -632,31 +514,17 @@ function cleanStructuredData(data) {
       safeArray(data.skills)
         .map((item) => safeString(item))
         .filter(Boolean),
-      12
+      8
     ),
 
-    experience: cleanExperienceArray(data.experience).filter(
-  e => e.title || e.company || e.tasks.length
-),
-
-education: cleanEducationArray(data.education).filter(
-  e => e.degree || e.school
-),
-
-projects: cleanProjectsArray(data.projects).filter(
-  p => p.project_title
-),
+    experience: cleanExperienceArray(data.experience),
+    projects: cleanProjectsArray(data.projects),
+    education: cleanEducationArray(data.education),
     certifications: cleanCertificationsArray(data.certifications),
-    extra_sections: cleanExtraSections(data.extra_sections).filter(
-  (s) =>
-    safeString(s.section_title).length > 0 ||
-    safeString(s.section_content).length > 0 ||
-    (Array.isArray(s.items) && s.items.length > 0)
-),
+    extra_sections: cleanExtraSections(data.extra_sections),
 
     reference_choice: normaliseReferenceChoice(data.reference_choice),
     reference_details: safeString(data.reference_details),
-    reference_entries: cleanReferenceEntries(data.reference_entries),
   };
 }
 
@@ -665,71 +533,34 @@ function preserveSectionDatesFromRawInput(parsed, rawInput) {
   const parsedEducation = safeArray(parsed?.education);
   const parsedProjects = safeArray(parsed?.projects);
 
-  const rawExperience = safeArray(
-    rawInput?.work_experience || rawInput?.experience
-  );
+  const rawExperience = safeArray(rawInput?.experience);
   const rawEducation = safeArray(rawInput?.education);
-  const rawProjects = safeArray(
-    rawInput?.projects_research || rawInput?.projects
-  );
+  const rawProjects = safeArray(rawInput?.projects);
 
-  parsed.experience = parsedExperience.map((item, index) => {
-    const match = findMatchingRaw(rawExperience, item);
+  parsed.experience = parsedExperience.map((item, index) => ({
+    ...item,
+    start: safeString(rawExperience[index]?.start),
+    end: safeString(rawExperience[index]?.end),
+  }));
 
-    return {
-      ...item,
-      start: safeString(match?.start || match?.start_date),
-      end: match?.currently_working_here
-        ? ""
-        : safeString(match?.end || match?.end_date),
-    };
-  });
+  parsed.education = parsedEducation.map((item, index) => ({
+    ...item,
+    start: safeString(rawEducation[index]?.start),
+    end: safeString(rawEducation[index]?.end),
+  }));
 
-  parsed.education = parsedEducation.map((item, index) => {
-    const match = findMatchingRaw(rawEducation, item);
-
-    return {
-      ...item,
-      start: safeString(match?.start || match?.start_date),
-      end: match?.currently_studying_here
-        ? ""
-        : safeString(match?.end || match?.end_date),
-    };
-  });
-
-  parsed.projects = parsedProjects.map((item, index) => {
-    const match = findMatchingRaw(rawProjects, item);
-
-    return {
-      ...item,
-      start: safeString(match?.start || match?.start_date),
-      end: match?.currently_working_on_this_project
-        ? ""
-        : safeString(match?.end || match?.end_date),
-    };
-  });
+  parsed.projects = parsedProjects.map((item, index) => ({
+    ...item,
+    start: safeString(rawProjects[index]?.start),
+    end: safeString(rawProjects[index]?.end),
+  }));
 
   return parsed;
 }
 
-
 function preserveReferencesFromRawInput(parsed, rawInput) {
-  parsed.reference_choice = normaliseReferenceChoice(
-    rawInput?.references?.include_references ?? rawInput?.reference_choice
-  );
-
-  // ONLY override if rawInput explicitly provides it
-  if (rawInput?.reference_details) {
-    parsed.reference_details = safeString(rawInput.reference_details);
-  }
-
-  // ONLY override if rawInput explicitly provides entries
-  if (rawInput?.reference_entries || rawInput?.references?.reference_entries) {
-    parsed.reference_entries = cleanReferenceEntries(
-      rawInput?.reference_entries || rawInput?.references?.reference_entries
-    );
-  }
-
+  parsed.reference_choice = rawInput.reference_choice;
+  parsed.reference_details = rawInput.reference_details;
   return parsed;
 }
 
@@ -767,6 +598,8 @@ IMPORTANT CONTEXT:
 - Extract relevant role keywords naturally without copying the job description directly
 - Focus on recruiter readability, clarity, credibility, realism, and professional presentation
 - The final CV must sound professionally written, human, realistic, recruiter-readable, and appropriate for the candidate’s actual career stage
+- If experience entries are fewer than 2, prioritise stronger edu_competencies generation
+- If experience entries are 2 or more, edu_competencies can remain minimal or empty
 
 ENTRY LEVEL TEMPLATE
 Use this when:
@@ -944,6 +777,14 @@ For students, interns, SIWES, and entry-level candidates:
 - teamwork
 - reliability
 without forcing artificial complexity.
+
+EDUCATION COMPETENCIES RULE:
+- For entry-level, internship, SIWES, NYSC, and fresh graduate candidates with limited work experience, generate edu_competencies inside each education entry
+- edu_competencies should contain practical academic strengths, technical exposure, laboratory familiarity, coursework relevance, research exposure, software familiarity, communication skills, or analytical abilities supported by the candidate’s field of study
+- Keep competencies realistic and grounded
+- Do not invent advanced expertise
+- Return 3 to 4 concise bullet-style competencies per education entry where appropriate
+- If the candidate already has strong work experience, edu_competencies may be an empty array
 
 Good bullets usually explain:
 - what was handled
@@ -1315,28 +1156,12 @@ If both layers conflict:
 → prioritize HUMAN RECRUITER LAYER while preserving ATS keywords naturally.
 
 USER INPUT:
-${JSON.stringify(
-  {
-    document_purpose: rawInput.document_purpose,
-    full_name: rawInput.full_name,
-    job_description: rawInput.job_description,
-    professional_summary: rawInput.professional_summary,
-    skills: rawInput.skills,
-    work_experience: rawInput.work_experience,
-    education: rawInput.education,
-    projects_research: rawInput.projects_research,
-    certifications: rawInput.certifications,
-    additional_information: rawInput.extra_sections,
-    reference_choice: rawInput.reference_choice,
-  },
-  null,
-  2
-)}
+${JSON.stringify(rawInput, null, 2)}
 `.trim();
 }
 
-function ensureTemplateExists(templatePath) {
-  return fs.existsSync(templatePath);
+function ensureTemplateExists() {
+  return fs.existsSync(TEMPLATE_PATH);
 }
 
 /**
@@ -1346,7 +1171,7 @@ function ensureTemplateExists(templatePath) {
  */
 const CV_JSON_SCHEMA = {
   name: "ats_cv_output",
-  strict: false,
+  strict: true,
   schema: {
     type: "object",
     additionalProperties: false,
@@ -1413,34 +1238,34 @@ const CV_JSON_SCHEMA = {
       },
 
       education: {
-  type: "array",
-  items: {
-    type: "object",
-    additionalProperties: false,
-    properties: {
-  degree: { type: "string" },
-  school: { type: "string" },
-  location: { type: "string" },
-  start: { type: "string" },
-  end: { type: "string" },
-  edu_detail: { type: "string" },
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            degree: { type: "string" },
+            school: { type: "string" },
+            location: { type: "string" },
+            start: { type: "string" },
+            end: { type: "string" },
+            edu_detail: { type: "string" },
 
-  edu_competencies: {
-    type: "array",
-    items: { type: "string" },
-  },
+              edu_competencies: {
+              type: "array",
+              items: { type: "string" },
 },
-required: [
+          },
+          required: [
   "degree",
   "school",
   "location",
   "start",
   "end",
   "edu_detail",
-  "edu_competencies"
+  "edu_competencies",
 ],
-  },
-},
+        },
+      },
 
       certifications: {
         type: "array",
@@ -1448,28 +1273,23 @@ required: [
       },
 
       extra_sections: {
-  type: "array",
-  items: {
-    type: "object",
-    additionalProperties: false,
-    properties: {
-      section_title: { type: "string" },
-
-      section_content: { type: "string" },
-
-      items: {
         type: "array",
-        items: { type: "string" },
-      },
-    },
+        items: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+  section_title: { type: "string" },
 
-    required: [
-      "section_title",
-      "section_content",
-      "items"
-    ],
+  items: {
+    type: "array",
+    items: { type: "string" },
   },
+
+  section_content: { type: "string" },
 },
+required: ["section_title", "items", "section_content"],
+        },
+      },
 
       reference_choice: {
         type: "string",
@@ -1504,48 +1324,12 @@ required: [
  * ----------------------------------------
  */
 
-function determineTemplateType(rawInput) {
-  const experience = safeArray(rawInput?.experience);
-  const workExperience = safeArray(rawInput?.work_experience);
-
-  const hasExperience =
-    experience.some(e => safeString(e?.title) || safeString(e?.company)) ||
-    workExperience.some(e => safeString(e?.title || e?.job_title) || safeString(e?.company));
-
-  const purpose = safeString(rawInput?.document_purpose).toLowerCase();
-
-  const entryLevelKeywords = [
-    "internship",
-    "siwes",
-    "student",
-    "undergraduate",
-    "graduate",
-    "fresh graduate",
-    "entry level",
-    "entry",
-    "no experience"
-  ];
-
-  const isEntryByPurpose = entryLevelKeywords.some(k => purpose.includes(k));
-
-  if (!hasExperience || isEntryByPurpose) return "entry";
-
-  return "professional";
-}
-
 app.get("/", (req, res) => {
   return res.status(200).json({
     success: true,
     message: "CV API is running",
     environment: NODE_ENV,
-    template_exists: {
-  entry: fs.existsSync(
-    path.join(process.cwd(), "templates", "template_entry_level.docx")
-  ),
-  professional: fs.existsSync(
-    path.join(process.cwd(), "templates", "template_professional.docx")
-  ),
-}
+    template_exists: ensureTemplateExists(),
   });
 });
 
@@ -1554,22 +1338,12 @@ app.get("/api/health", (req, res) => {
     success: true,
     message: "Server is healthy",
     environment: NODE_ENV,
-    template_exists: {
-  entry: fs.existsSync(
-    path.join(process.cwd(), "templates", "template_entry_level.docx")
-  ),
-  professional: fs.existsSync(
-    path.join(process.cwd(), "templates", "template_professional.docx")
-  ),
-}
+    template_exists: ensureTemplateExists(),
   });
 });
 
 app.post("/generate-cv", async (req, res) => {
   try {
-
-    console.log("STEP 1: Route hit");
-    console.log("RAW BODY:", JSON.stringify(req.body, null, 2));
 
     let requestBody;
 
@@ -1583,142 +1357,81 @@ app.post("/generate-cv", async (req, res) => {
       });
     }
 
-    console.log("STEP 2: Before validation");
-
-const incomingError = validateIncomingBody(requestBody);
-
-console.log("STEP 3: After validation");
-
-if (incomingError) {
-  return res.status(400).json({
-    success: false,
-    error: incomingError,
-  });
-}
-
-console.log("STEP 4: Before normalization");
-
-let rawInput = normalizeIncomingPayload(requestBody);
-
-console.log("STEP 5: After normalization");
-
-console.log("STEP 2: Payload normalized");
-
-const templateType = determineTemplateType(rawInput);
-
-const TEMPLATE_PATH =
-  templateType === "entry"
-    ? path.join(process.cwd(), "templates", "template_entry_level.docx")
-    : path.join(process.cwd(), "templates", "template_professional.docx");
-
-    if (!fs.existsSync(TEMPLATE_PATH)) {
-      return res.status(500).json({
+    const incomingError = validateIncomingBody(requestBody);
+    if (incomingError) {
+      return res.status(400).json({
         success: false,
-        error: "Template file not found: " + TEMPLATE_PATH,
+        error: incomingError,
       });
     }
 
-    const prompt = buildPrompt(rawInput);
-    
-    console.log("STEP 3: Prompt built");
-
-    console.log("STEP 4: Sending OpenAI request");
-
-let completion;
-
-try {
-  completion = await openai.responses.create({
-    model: "gpt-4.1-mini",
-    temperature: 0.2,
-
-    text: {
-      format: {
-        type: "json_schema",
-        name: CV_JSON_SCHEMA.name,
-        strict: true,
-        schema: CV_JSON_SCHEMA.schema,
-      },
-    },
-
-    input: [
-      {
-        role: "developer",
-        content: [
-          {
-            type: "input_text",
-            text: "Return only valid JSON matching the provided schema. No markdown. No commentary.",
-          },
-        ],
-      },
-      {
-        role: "user",
-        content: [
-          {
-            type: "input_text",
-            text: prompt,
-          },
-        ],
-      },
-    ],
-  });
-
-  console.log("STEP 5: OpenAI response received");
-
-} catch (openaiError) {
-  console.error("OpenAI request failed:", openaiError?.message || openaiError);
-
-  const statusCode =
-    typeof openaiError?.status === "number" && openaiError.status >= 400
-      ? 502
-      : 500;
-
-  return res.status(statusCode).json({
-    success: false,
-    error: "AI generation request failed",
-    details: openaiError?.message || "Unknown OpenAI error",
-  });
-}
-
-    function extractOpenAIText(response) {
-  if (!response) return null;
-
-  // 1. New SDK shortcut (preferred)
-  if (typeof response.output_text === "string" && response.output_text.trim()) {
-    return response.output_text;
-  }
-
-  // 2. Standard structured output path
-  const output = response.output;
-
-  if (Array.isArray(output)) {
-    for (const item of output) {
-      const content = item?.content;
-
-      if (Array.isArray(content)) {
-        for (const c of content) {
-          if (typeof c?.text === "string" && c.text.trim()) {
-            return c.text;
-          }
-        }
-      }
+    if (!ensureTemplateExists()) {
+      return res.status(500).json({
+        success: false,
+        error: "Template file not found: templates/cv-template.docx",
+      });
     }
-  }
 
-  // 3. Older / fallback response shapes (just in case)
-  if (typeof response?.text === "string") {
-    return response.text;
-  }
+    const rawInput = normalizeIncomingPayload(requestBody);
+    const prompt = buildPrompt(rawInput);
 
-  return null;
-}
-const content = extractOpenAIText(completion);
+    let completion;
+    try {
+      completion = await openai.responses.create({
+  model: "gpt-4.1-mini",
+  temperature: 0.2,
+  text: {
+    format: {
+      type: "json_schema",
+      name: CV_JSON_SCHEMA.name,
+      strict: true,
+      schema: CV_JSON_SCHEMA.schema,
+    },
+  },
+  input: [
+    {
+      role: "developer",
+      content: [
+        {
+          type: "input_text",
+          text: "Return only valid JSON matching the provided schema. No markdown. No commentary.",
+        },
+      ],
+    },
+    {
+      role: "user",
+      content: [
+        {
+          type: "input_text",
+          text: prompt,
+        },
+      ],
+    },
+  ],
+});
+    } catch (openaiError) {
+      console.error("OpenAI request failed:", openaiError?.message || openaiError);
 
-    if (!content || typeof content !== "string") {
-  return res.status(500).json({
-    success: false,
-    error: "Empty or invalid AI response",
-  });
-}
+      const statusCode =
+        typeof openaiError?.status === "number" && openaiError.status >= 400
+          ? 502
+          : 500;
+
+      return res.status(statusCode).json({
+        success: false,
+        error: "AI generation request failed",
+        details: openaiError?.message || "Unknown OpenAI error",
+      });
+    }
+
+    const content = completion.output_text;
+
+    if (!content) {
+      return res.status(500).json({
+        success: false,
+        error: "Empty AI response",
+      });
+    }
 
     let parsed;
     try {
@@ -1731,73 +1444,45 @@ const content = extractOpenAIText(completion);
       });
     }
 
-    console.log("STEP 6: JSON parsed");
-
     parsed = preserveSectionDatesFromRawInput(parsed, rawInput);
     parsed = preserveReferencesFromRawInput(parsed, rawInput);
 
- //removed  
-
 const data = cleanStructuredData(parsed);
 
-let referenceText = "";
+const referenceText = buildReferenceText(
+  rawInput.reference_choice,
+  rawInput.reference_details
+);
 
-if (data.reference_choice === "available") {
-  referenceText = "References available upon request";
-}
+    const renderData = {
+      FULL_NAME: data.full_name || "",
+      CONTACT_LINE: buildContactLine(data) || "",
+      PROFESSIONAL_SUMMARY: data.professional_summary || "",
+      SKILLS_LINE: buildSkillsLine(data.skills) || "",
 
-const hasReference =
-  data.reference_choice === "available" ||
-  (
-    data.reference_choice === "included" &&
-    Array.isArray(data.reference_entries) &&
-    data.reference_entries.length > 0
-  );
+      HAS_EXPERIENCE: data.experience.length > 0,
+      experience: data.experience,
 
-const orderedSections =
-  templateType === "entry"
-    ? {
-        education: data.education,
-        projects: data.projects,
-        experience: data.experience,
-      }
-    : {
-        experience: data.experience,
-        projects: data.projects,
-        education: data.education,
-      };
-const renderData = {
-  FULL_NAME: safeString(data.full_name),
-  CONTACT_LINE: buildContactLine(data) || "",
-  PROFESSIONAL_SUMMARY: data.professional_summary || "",
-  
-  HAS_SKILLS: Array.isArray(data.skills) && data.skills.some(Boolean),
-  skills: data.skills,
+      HAS_PROJECTS: data.projects.length > 0,
+      projects: data.projects,
 
-   // 👇 dynamic section order based on template type
-  ...orderedSections,
-  
-  HAS_EXPERIENCE: Array.isArray(data.experience) && data.experience.length > 0,
+      HAS_EDUCATION: data.education.length > 0,
+      education: data.education,
 
-  HAS_PROJECTS: Array.isArray(data.projects) && data.projects.length > 0,
+      HAS_CERTIFICATIONS: data.certifications.length > 0,
+      certifications: data.certifications,
 
-  HAS_EDUCATION: Array.isArray(data.education) && data.education.length > 0,
-  
-  HAS_CERTIFICATIONS: data.certifications.length > 0,
-  certifications: data.certifications,
+      HAS_EXTRA: data.extra_sections.length > 0,
+      extra_sections: data.extra_sections,
 
-  HAS_EXTRA: data.extra_sections.length > 0,
-  extra_sections: data.extra_sections,
+      HAS_REFERENCE: Boolean(referenceText),
+      REFERENCE_SECTION: referenceText || "",
 
-  HAS_REFERENCE: hasReference,
-  REFERENCE_SECTION: referenceText,
-  references_list:
-  data.reference_choice === "included"
-    ? cleanReferenceEntries(data.reference_entries)
-    : [],
-};
+      HAS_REFERENCES_LIST: rawInput.reference_entries.length > 0,
+      references_list: rawInput.reference_entries,
+    };
 
-    if (NODE_ENV !== "development") {
+    if (NODE_ENV !== "production") {
       console.log("NORMALIZED INPUT:");
       console.dir(rawInput, { depth: null });
       console.log("RENDER DATA:");
@@ -1817,44 +1502,28 @@ const renderData = {
         },
       });
 
-      console.log("STEP 7: Rendering DOCX");
-
       doc.render(renderData);
 
       buffer = doc.getZip().generate({
         type: "nodebuffer",
         compression: "DEFLATE",
       });
-  } catch (docError) {
-  console.error("DOCUMENT ERROR FULL:");
-console.dir(docError, { depth: null });
+    } catch (docError) {
+      console.error("Document render failed:", docError?.message || docError);
 
-  return res.status(500).json({
-    success: false,
-    error: "CV document rendering failed",
-    details: docError?.message || "Template render error",
-  });
-}
-
-console.log("STEP 8: DOCX rendered");
-
-    console.log("STEP 9: Uploading to S3");
+      return res.status(500).json({
+        success: false,
+        error: "CV document rendering failed",
+        details: docError?.message || "Template render error",
+      });
+    }
 
 const bucket = process.env.AWS_BUCKET_NAME;
 
-if (!bucket) {
-  return res.status(500).json({
-    success: false,
-    error: "AWS_BUCKET_NAME is not defined in environment variables",
-  });
-}
-
 console.log("BUCKET VALUE:", bucket);
 
-const fileName = await generateFileName(s3, bucket, data.full_name);
-const s3Key = fileName.startsWith("generated-cv/")
-  ? fileName
-  : `generated-cv/${fileName}`;
+const fileName = generateUniqueFileName(data.full_name);
+const s3Key = `generated-cv/${fileName}`;
 
 try {
   await s3.send(
@@ -1866,8 +1535,6 @@ try {
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     })
   );
-
-  console.log("STEP 10: S3 upload successful");
 } catch (uploadError) {
   console.error("S3 upload failed:", uploadError);
 
@@ -1879,7 +1546,7 @@ try {
 
 const command = new GetObjectCommand({
   Bucket: bucket,
-  Key: s3Key.startsWith("generated-cv/") ? s3Key : `generated-cv/${s3Key}`,
+  Key: s3Key,
 });
 
 const downloadUrl = await getSignedUrl(s3, command, {
