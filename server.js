@@ -168,7 +168,7 @@ function buildSkillsLine(skills) {
   return safeArray(skills)
     .map((item) => safeString(item))
     .filter(Boolean)
-    .join(" • ");
+    .join(", ");
 }
 
 function endOrPresent(value) {
@@ -381,7 +381,14 @@ if (reference_choice === "included" && !builtReferenceDetails) {
         item?.end_date
       ),
 
-  role_summary: "",
+  role_summary: safeString(
+  item?.role_summary ||
+  item?.job_summary ||
+  item?.summary ||
+  item?.responsibilities_summary ||
+  item?.what_you_did ||
+  item?.what_did_you_do_in_this_role
+),
 
   tasks: splitLinesToArray(
     item?.tasks ||
@@ -399,9 +406,28 @@ if (reference_choice === "included" && !builtReferenceDetails) {
   degree: safeString(item?.degree || item?.degree_qualification),
   school: safeString(item?.school),
   location: safeString(item?.location),
-  start: safeString(item?.start || item?.start_date),
-  end: item?.currently_studying_here ? "" : safeString(item?.end || item?.end_date),
-  edu_detail: safeString(item?.edu_detail || item?.grade_result),
+
+  start: safeString(
+    item?.start || item?.start_date
+  ),
+
+  end: item?.currently_studying_here
+    ? ""
+    : safeString(
+        item?.end || item?.end_date
+      ),
+
+  edu_detail: safeString(
+    item?.edu_detail || item?.grade_result
+  ),
+
+  edu_competencies: splitLinesToArray(
+  item?.edu_competencies ||
+  item?.skills ||
+  item?.course_competencies ||
+  item?.learning_outcomes,
+  4
+),
 }));
 
   const mappedProjects = projects.map((item) => ({
@@ -454,9 +480,15 @@ if (safeString(body?.additional_information)) {
   .join("\n");
 
   extra_sections.push({
-    section_title: "Additional Information",
-    section_content: formattedAdditionalInfo,
-  });
+  section_title: "Additional Information",
+
+  section_content: "",
+
+  items: formattedAdditionalInfo
+    .split(/\r?\n/)
+    .map((v) => safeString(v))
+    .filter(Boolean),
+});
 }
 
   return {
@@ -552,11 +584,28 @@ function isMeaningfulArray(arr) {
 
 function cleanExtraSections(extraSections) {
   return clampArray(safeArray(extraSections), 6)
-    .map((item) => ({
-      section_title: safeString(item?.section_title),
-      section_content: safeString(item?.section_content),
-    }))
-    .filter((item) => item.section_content);
+    .map((item) => {
+      const items = Array.isArray(item?.items)
+        ? item.items
+            .map((v) => safeString(v))
+            .filter(Boolean)
+        : [];
+
+      return {
+        section_title: safeString(item?.section_title),
+
+        section_content: safeString(item?.section_content),
+
+        items,
+      };
+    })
+    .filter((item) => {
+      return (
+        item.section_title ||
+        item.section_content ||
+        item.items.length > 0
+      );
+    });
 }
 
 function hasMeaningfulContent(obj) {
@@ -583,7 +632,7 @@ function cleanStructuredData(data) {
       safeArray(data.skills)
         .map((item) => safeString(item))
         .filter(Boolean),
-      8
+      12
     ),
 
     experience: cleanExperienceArray(data.experience).filter(
@@ -599,11 +648,15 @@ projects: cleanProjectsArray(data.projects).filter(
 ),
     certifications: cleanCertificationsArray(data.certifications),
     extra_sections: cleanExtraSections(data.extra_sections).filter(
-  (s) => safeString(s.section_content).length > 0
+  (s) =>
+    safeString(s.section_title).length > 0 ||
+    safeString(s.section_content).length > 0 ||
+    (Array.isArray(s.items) && s.items.length > 0)
 ),
 
     reference_choice: normaliseReferenceChoice(data.reference_choice),
     reference_details: safeString(data.reference_details),
+    reference_entries: cleanReferenceEntries(data.reference_entries),
   };
 }
 
@@ -660,12 +713,23 @@ function preserveSectionDatesFromRawInput(parsed, rawInput) {
 }
 
 
-
 function preserveReferencesFromRawInput(parsed, rawInput) {
   parsed.reference_choice = normaliseReferenceChoice(
     rawInput?.references?.include_references ?? rawInput?.reference_choice
   );
-  parsed.reference_details = safeString(rawInput.reference_details);
+
+  // ONLY override if rawInput explicitly provides it
+  if (rawInput?.reference_details) {
+    parsed.reference_details = safeString(rawInput.reference_details);
+  }
+
+  // ONLY override if rawInput explicitly provides entries
+  if (rawInput?.reference_entries || rawInput?.references?.reference_entries) {
+    parsed.reference_entries = cleanReferenceEntries(
+      rawInput?.reference_entries || rawInput?.references?.reference_entries
+    );
+  }
+
   return parsed;
 }
 
@@ -1384,17 +1448,28 @@ required: [
       },
 
       extra_sections: {
+  type: "array",
+  items: {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      section_title: { type: "string" },
+
+      section_content: { type: "string" },
+
+      items: {
         type: "array",
-        items: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            section_title: { type: "string" },
-            section_content: { type: "string" },
-          },
-          required: ["section_title", "section_content"],
-        },
+        items: { type: "string" },
       },
+    },
+
+    required: [
+      "section_title",
+      "section_content",
+      "items"
+    ],
+  },
+},
 
       reference_choice: {
         type: "string",
@@ -1431,33 +1506,29 @@ required: [
 
 function determineTemplateType(rawInput) {
   const experience = safeArray(rawInput?.experience);
-  const hasExperience = experience.some(
-  e => safeString(e?.title) || safeString(e?.company)
-);
+  const workExperience = safeArray(rawInput?.work_experience);
+
+  const hasExperience =
+    experience.some(e => safeString(e?.title) || safeString(e?.company)) ||
+    workExperience.some(e => safeString(e?.title || e?.job_title) || safeString(e?.company));
 
   const purpose = safeString(rawInput?.document_purpose).toLowerCase();
 
-  // Strong signals for entry level
   const entryLevelKeywords = [
-  "internship",
-  "siwes",
-  "student",
-  "undergraduate",
-  "graduate",
-  "fresh graduate",
-  "entry level",
-  "entry",
-  "no experience"
-];
+    "internship",
+    "siwes",
+    "student",
+    "undergraduate",
+    "graduate",
+    "fresh graduate",
+    "entry level",
+    "entry",
+    "no experience"
+  ];
 
-  const isEntryByPurpose = entryLevelKeywords.some((k) =>
-    purpose.includes(k)
-  );
+  const isEntryByPurpose = entryLevelKeywords.some(k => purpose.includes(k));
 
-  // Rule logic (simple but effective)
-  if (!hasExperience || isEntryByPurpose) {
-    return "entry";
-  }
+  if (!hasExperience || isEntryByPurpose) return "entry";
 
   return "professional";
 }
@@ -1665,64 +1736,53 @@ const content = extractOpenAIText(completion);
     parsed = preserveSectionDatesFromRawInput(parsed, rawInput);
     parsed = preserveReferencesFromRawInput(parsed, rawInput);
 
- function safeFallback(parsed) {
-  parsed.skills = Array.isArray(parsed.skills) ? parsed.skills : [];
-
-  parsed.experience = Array.isArray(parsed.experience)
-    ? parsed.experience.map(e => ({
-        ...e,
-        tasks: Array.isArray(e.tasks) ? e.tasks : [],
-      }))
-    : [];
-
-  parsed.education = Array.isArray(parsed.education)
-    ? parsed.education.map(e => ({
-        ...e,
-        edu_competencies: Array.isArray(e.edu_competencies)
-          ? e.edu_competencies
-          : [],
-      }))
-    : [];
-
-  parsed.projects = Array.isArray(parsed.projects)
-    ? parsed.projects.map(p => ({
-        ...p,
-        project_tasks: Array.isArray(p.project_tasks)
-          ? p.project_tasks
-          : [],
-      }))
-    : [];
-
-  return parsed;
-}   
+ //removed  
 
 const data = cleanStructuredData(parsed);
 
-const referenceText = buildReferenceText(
-  rawInput.reference_choice,
-  rawInput.reference_details
-);
+let referenceText = "";
 
-    const hasReference =
-  safeString(referenceText).length > 0;
+if (data.reference_choice === "available") {
+  referenceText = "References available upon request";
+}
 
+const hasReference =
+  data.reference_choice === "available" ||
+  (
+    data.reference_choice === "included" &&
+    Array.isArray(data.reference_entries) &&
+    data.reference_entries.length > 0
+  );
+
+const orderedSections =
+  templateType === "entry"
+    ? {
+        education: data.education,
+        projects: data.projects,
+        experience: data.experience,
+      }
+    : {
+        experience: data.experience,
+        projects: data.projects,
+        education: data.education,
+      };
 const renderData = {
-  FULL_NAME: data.full_name || "",
+  FULL_NAME: safeString(data.full_name),
   CONTACT_LINE: buildContactLine(data) || "",
   PROFESSIONAL_SUMMARY: data.professional_summary || "",
-  SKILLS_LINE: buildSkillsLine(data.skills) || "",
+  
+  HAS_SKILLS: Array.isArray(data.skills) && data.skills.some(Boolean),
+  skills: data.skills,
 
-  HAS_EXPERIENCE: data.experience.length > 0,
-  experience: data.experience,
+   // 👇 dynamic section order based on template type
+  ...orderedSections,
+  
+  HAS_EXPERIENCE: Array.isArray(data.experience) && data.experience.length > 0,
 
-  HAS_SKILLS: data.skills.length > 0,
+  HAS_PROJECTS: Array.isArray(data.projects) && data.projects.length > 0,
 
-  HAS_PROJECTS: data.projects.length > 0,
-  projects: data.projects,
-
-  HAS_EDUCATION: data.education.length > 0,
-  education: data.education,
-
+  HAS_EDUCATION: Array.isArray(data.education) && data.education.length > 0,
+  
   HAS_CERTIFICATIONS: data.certifications.length > 0,
   certifications: data.certifications,
 
@@ -1731,7 +1791,10 @@ const renderData = {
 
   HAS_REFERENCE: hasReference,
   REFERENCE_SECTION: referenceText,
-  references_list: rawInput.reference_entries,
+  references_list:
+  data.reference_choice === "included"
+    ? cleanReferenceEntries(data.reference_entries)
+    : [],
 };
 
     if (NODE_ENV !== "development") {
