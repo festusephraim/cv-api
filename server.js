@@ -326,15 +326,6 @@ function normalizeIncomingPayload(body) {
   edu_competencies: shouldUseEduCompetencies ? [] : [],
 }));
 
-  const mappedEducation = education.map((item) => ({
-    degree: safeString(item?.degree_qualification),
-    school: safeString(item?.school),
-    location: safeString(item?.location),
-    start: safeString(item?.start_date),
-    end: item?.currently_studying_here ? "" : safeString(item?.end_date),
-    edu_detail: safeString(item?.grade_result),
-  }));
-  
   const shouldUseEduCompetencies =
   mappedExperience.length < 2;
 
