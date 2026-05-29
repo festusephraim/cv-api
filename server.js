@@ -700,6 +700,331 @@ PROFESSIONAL TEMPLATE STYLE RULES
   - reporting
   - operational contribution
 - Language can be structured but must remain realistic
+# deep9 Strategic ATS Interpretation Layer
+
+IMPORTANT:
+This layer executes BEFORE CV writing begins.
+
+This is not a formatting phase.
+This is not a grammar correction phase.
+
+This is the strategic interpretation and recruiter-alignment phase.
+
+The objective is to determine:
+
+* what role the candidate is actually competing for,
+* how recruiters will interpret the profile,
+* how ATS systems will classify relevance,
+* and how the candidate should be strategically positioned before writing starts.
+
+Do NOT immediately generate CV content.
+
+The system must first perform recruiter-style interpretation logic internally.
+
+---
+
+## CORE PRINCIPLE
+
+Expert ATS CV work is NOT primarily writing.
+
+It is:
+
+* interpretation skill,
+* hiring logic understanding,
+* role alignment analysis,
+* ATS relevance engineering,
+* recruiter psychology,
+* and strategic positioning.
+
+Writing is only the final execution layer.
+
+The system must therefore think like:
+
+* a recruiter,
+* a hiring manager,
+* an ATS parser,
+* and a career strategist simultaneously.
+
+---
+
+## STEP 1 — JOB DECONSTRUCTION
+
+If a job description, internship description, scholarship opportunity, or target role is provided:
+
+Internally decode the opportunity before writing.
+
+Extract and analyse:
+
+A. CORE SKILLS
+Identify:
+
+* mandatory technical skills,
+* operational responsibilities,
+* workflow expectations,
+* role-critical competencies.
+
+B. SUPPORTING SKILLS
+Identify:
+
+* secondary capabilities,
+* coordination expectations,
+* communication requirements,
+* reporting responsibilities,
+* administrative or collaborative functions.
+
+C. ATS TRIGGER TERMS
+Extract:
+
+* repeated keywords,
+* systems,
+* software,
+* platforms,
+* certifications,
+* tools,
+* operational phrases,
+* industry terminology.
+
+IMPORTANT:
+Do NOT simply copy keywords.
+Understand their operational meaning first.
+
+D. SENIORITY SIGNALS
+Determine whether the role is:
+
+* internship,
+* entry-level,
+* junior,
+* mid-level,
+* specialist,
+* supervisory,
+* managerial,
+* executive.
+
+Never inflate seniority beyond evidence.
+
+E. INDUSTRY LANGUAGE PATTERN
+Observe:
+
+* how the employer communicates,
+* vocabulary style,
+* operational tone,
+* performance expectations,
+* role framing logic.
+
+Mirror language naturally without copying the job description directly.
+
+---
+
+## STEP 2 — CANDIDATE MAPPING
+
+Map the candidate to the opportunity using 3 layers:
+
+LAYER 1 — DIRECT ALIGNMENT
+Identify:
+
+* matching responsibilities,
+* same tools,
+* same workflows,
+* same industry exposure,
+* directly relevant tasks.
+
+LAYER 2 — TRANSFERABLE ALIGNMENT
+Identify:
+
+* adjacent operational experience,
+* similar coordination logic,
+* related systems exposure,
+* transferable technical capability,
+* similar reporting or workflow structures.
+
+LAYER 3 — HIDDEN VALUE
+Identify:
+
+* reliability signals,
+* communication ability,
+* adaptability,
+* learning exposure,
+* leadership indicators,
+* organisational contribution,
+* operational awareness,
+* analytical support,
+* customer interaction,
+* workflow continuity support.
+
+Do NOT fabricate experience.
+
+Interpret intelligently while preserving truth.
+
+---
+
+## STEP 3 — POSITIONING STRATEGY
+
+Determine the strongest believable professional identity for the candidate.
+
+Examples:
+
+* Production Maintenance Engineer
+* Administrative Officer
+* Graduate Trainee
+* Customer Support Assistant
+* Front Desk Administrator
+* Laboratory Assistant
+* Data Entry Clerk
+
+Avoid vague identities such as:
+
+* hardworking individual
+* team player
+* proactive professional
+* dynamic candidate
+
+The positioning identity must be:
+
+* believable,
+* recruiter-friendly,
+* ATS-relevant,
+* evidence-supported,
+* and appropriate for the candidate’s actual level.
+
+IMPORTANT:
+The system must position candidates based on employability reality, not aspirational exaggeration.
+
+---
+
+## STEP 4 — EXPERIENCE PRIORITISATION
+
+Not all experiences carry equal strategic value.
+
+Prioritise experiences based on:
+
+* relevance to target role,
+* operational contribution,
+* continuity,
+* ATS relevance density,
+* credibility,
+* and positioning strength.
+
+Older, weaker, or less relevant experiences may be:
+
+* compressed,
+* summarised,
+* reduced,
+* merged,
+* or minimally emphasised.
+
+The objective is relevance density, not document length.
+
+More information does NOT equal stronger positioning.
+
+---
+
+## STEP 5 — ATS KEYWORD ENGINEERING
+
+Do NOT keyword stuff.
+
+Expert ATS optimisation means:
+
+* naturally integrating relevant terms,
+* aligning phrasing with hiring language,
+* improving contextual keyword relevance,
+* and increasing recruiter interpretation clarity.
+
+Prioritise keyword placement inside:
+
+* professional headline,
+* professional summary,
+* first 3 bullets of each role,
+* skills section,
+* role titles where appropriate.
+
+ATS systems evaluate:
+
+* keyword frequency,
+* placement,
+* contextual relevance,
+* semantic relationship,
+* and role alignment.
+
+Keywords must feel:
+
+* natural,
+* readable,
+* and operationally believable.
+
+Never produce robotic repetition.
+
+---
+
+## STEP 6 — HUMAN SCAN OPTIMISATION
+
+After ATS screening, recruiters typically scan a CV in approximately 6–12 seconds.
+
+The document must therefore communicate quickly:
+
+* role fit,
+* employability,
+* operational relevance,
+* workplace exposure,
+* and professional clarity.
+
+Optimise for:
+
+* clean readability,
+* low cognitive friction,
+* visible relevance,
+* concise structure,
+* and scanning ease.
+
+Ensure:
+
+* first lines establish role alignment quickly,
+* bullets begin with strong practical verbs,
+* metrics remain visible when available,
+* important information is not buried inside text walls.
+
+The CV must satisfy TWO audiences:
+
+1. ATS systems
+2. Human recruiters
+
+If conflict exists:
+prioritise HUMAN RECRUITER READABILITY while preserving ATS compatibility naturally.
+
+---
+
+## STEP 7 — PROOF ARCHITECTURE
+
+Premium-quality CV positioning requires proof logic.
+
+Where evidence exists, strengthen credibility using:
+
+* measurable outputs,
+* operational scope,
+* workflow responsibility,
+* reporting ownership,
+* process coordination,
+* maintenance responsibilities,
+* productivity contribution,
+* customer interaction volume,
+* support impact,
+* continuity support,
+* technical contribution.
+
+Where exact metrics are unavailable:
+use realistic operational framing without fabrication.
+
+Never invent:
+
+* achievements,
+* percentages,
+* KPIs,
+* revenue,
+* team size,
+* certifications,
+* technical expertise,
+* or unsupported business impact.
+
+---
 
 CORE WRITING STANDARD
 - Write like a recruiter preparing a real CV for hiring
@@ -1189,6 +1514,149 @@ Every CV must satisfy two simultaneous layers:
 
 If both layers conflict:
 → prioritize HUMAN RECRUITER LAYER while preserving ATS keywords naturally.
+- The final CV must feel:
+- focused,
+- credible,
+- modern,
+- professionally intelligent,
+- and strategically positioned.
+
+## DECISION PRIORITY HIERARCHY
+
+When multiple instructions appear to conflict, follow this priority order:
+
+1. TRUTH PRESERVATION
+   Never fabricate experience, achievements, tools, qualifications, metrics, or responsibilities.
+
+2. REALISTIC POSITIONING
+   Maintain believable professional presentation appropriate to the candidate’s actual experience level.
+
+3. HUMAN RECRUITER READABILITY
+   Prioritise natural, recruiter-friendly language over robotic ATS optimisation.
+
+4. ATS RELEVANCE
+   Integrate keywords and role terminology naturally without keyword stuffing.
+
+5. STRATEGIC OPTIMISATION
+   Improve positioning, structure, and alignment only when supported by evidence from the candidate’s input.
+
+6. WRITING POLISH
+   Grammar, phrasing, and formatting improvements must never distort factual meaning.
+
+If optimisation would require exaggeration, fabrication, or unrealistic positioning:
+DO NOT APPLY THE OPTIMISATION.
+
+The system must always preserve:
+
+* credibility,
+* realism,
+* recruiter trust,
+* and employability authenticity.
+
+OUTPUT VALIDATION AGAINST JOB REALITY
+
+Before final CV generation:
+
+Internally validate:
+
+* ATS keyword relevance,
+* role alignment consistency,
+* recruiter readability,
+* seniority realism,
+* relevance density,
+* and hiring plausibility.
+
+Simulate recruiter interpretation internally.
+
+Ask:
+
+* Would this candidate realistically be considered for this role?
+* Does the wording feel believable?
+* Is the positioning aligned with actual labour-market expectations?
+* Does the document communicate employability clearly?
+* Would the first 10 seconds create relevance recognition?
+
+If not:
+adjust positioning before writing.
+
+---
+## RELEVANCE DENSITY RULE
+
+The CV must maximise relevance density.
+
+Every line should contribute to at least one of the following:
+
+* role alignment,
+* operational credibility,
+* ATS relevance,
+* recruiter clarity,
+* employability positioning,
+* or workplace contribution understanding.
+
+Remove or minimise:
+
+* generic filler,
+* repetitive wording,
+* low-value responsibilities,
+* unnecessary descriptions,
+* and information that does not strengthen hiring relevance.
+
+Concise and strategically relevant content is preferred over excessive detail.
+
+Strong CVs communicate targeted value efficiently.
+
+
+## FINAL STRATEGIC RULE
+
+The system must never rely purely on AI wording generation.
+
+AI supports:
+
+* production,
+* structuring,
+* phrasing,
+* optimisation,
+* and drafting.
+
+But strategic authority must come from:
+
+* hiring logic,
+* recruiter interpretation,
+* role understanding,
+* labour-market realism,
+* and positioning intelligence.
+
+The final CV must feel:
+
+* focused,
+* credible,
+* recruiter-aligned,
+* strategically positioned,
+* ATS-compatible,
+* professionally intelligent,
+* and realistically employable.
+
+## POSITIONING INTEGRITY RULE
+
+The system must position candidates at the HIGHEST BELIEVABLE LEVEL supported by evidence.
+
+Do NOT:
+
+* inflate weak experience,
+* invent seniority,
+* exaggerate leadership,
+* or artificially upgrade responsibility.
+
+But also do NOT:
+
+* undersell transferable experience,
+* ignore operational exposure,
+* minimise relevant technical familiarity,
+* or weaken legitimate workplace contribution.
+
+The objective is accurate strategic positioning:
+credible, competitive, and evidence-supported.
+
 
 USER INPUT:
 ${JSON.stringify(rawInput, null, 2)}
