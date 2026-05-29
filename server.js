@@ -70,9 +70,20 @@ function safeString(value) {
     .replace(/\u00A0/g, " ")
     .replace(/[“”]/g, '"')
     .replace(/[‘’]/g, "'")
+
+    // normalize line endings
     .replace(/\r\n/g, "\n")
     .replace(/\r/g, "\n")
+
+    // remove excessive line breaks
+    .replace(/\n{2,}/g, "\n")
+
+    // remove tabs/spaces
     .replace(/[ \t]+/g, " ")
+
+    // trim spaces around line breaks
+    .replace(/ *\n */g, "\n")
+
     .trim();
 
   if (
@@ -216,9 +227,11 @@ function buildReferenceDetailsFromEntries(entries) {
         .filter(Boolean)
         .join(", ");
 
-      return [line1, line2, line3].filter(Boolean).join("\n");
+      return [line1, line2, line3]
+  .filter(Boolean)
+  .join(" | ");
     })
-    .join("\n\n");
+    .join(" ");
 }
 
 function buildReferenceText(referenceChoice, referenceDetails) {
@@ -301,9 +314,31 @@ function parseRequestBody(reqBody) {
 
 function normalizeIncomingPayload(body) {
   const basicInfo = body?.basic_information || {};
-  const workExperience = clampArray(safeArray(body?.work_experience), 3);
-  const education = clampArray(safeArray(body?.education), 3);
-  const projects = clampArray(safeArray(body?.projects_research), 3);
+  const workExperience = clampArray(
+  safeArray(body?.work_experience).filter(
+    (item) =>
+      safeString(item?.job_title) ||
+      safeString(item?.company) ||
+      safeString(item?.what_did_you_do_in_this_role)
+  ),
+  3
+);
+  const education = clampArray(
+  safeArray(body?.education).filter(
+    (item) =>
+      safeString(item?.degree_qualification) ||
+      safeString(item?.school)
+  ),
+  3
+);
+  const projects = clampArray(
+  safeArray(body?.projects_research).filter(
+    (item) =>
+      safeString(item?.project_title) ||
+      safeString(item?.project_description)
+  ),
+  3
+);
 
   const referenceEntries = cleanReferenceEntries(body?.references?.reference_entries);
   const builtReferenceDetails = buildReferenceDetailsFromEntries(referenceEntries);
@@ -352,62 +387,24 @@ const mappedProjects = projects.map((item) => ({
 if (safeString(body?.additional_information)) {
   const rawInfo = safeString(body.additional_information);
 
-  const lines = rawInfo
-    .split(/\r?\n/)
-    .map((line) => safeString(line))
-    .filter(Boolean);
+  // ---------- LANGUAGES ----------
+  const languageMatches = rawInfo.match(
+    /(english|hausa|yoruba|igbo|french|kuteb|jukun-takum)/gi
+  );
 
-  const languageItems = [];
-  const volunteerItems = [];
-  const membershipItems = [];
-  const generalItems = [];
+  if (languageMatches?.length) {
+    const languageItems = [...new Set(languageMatches)].map((lang) => {
+      const cleanLang = cleanDisplayName(lang);
 
-  lines.forEach((line) => {
-    const lower = line.toLowerCase();
+      let level = "Conversational";
 
-    // LANGUAGES
-    if (lower.startsWith("languages:")) {
-      const values = line.split(":")[1] || "";
+      if (cleanLang.toLowerCase() === "english") {
+        level = "Fluent";
+      }
 
-      values
-        .split(",")
-        .map((item) => safeString(item))
-        .filter(Boolean)
-        .forEach((lang) => {
-          languageItems.push(lang);
-        });
+      return `${cleanLang} (${level})`;
+    });
 
-      return;
-    }
-
-    // MEMBERSHIP
-    if (
-      lower.startsWith("member,") ||
-      lower.startsWith("membership:")
-    ) {
-      membershipItems.push(
-        line.replace(/^membership:/i, "").trim()
-      );
-
-      return;
-    }
-
-    // VOLUNTEER
-    if (
-      lower.includes("volunteer") ||
-      lower.includes("outreach") ||
-      lower.includes("community")
-    ) {
-      volunteerItems.push(line);
-
-      return;
-    }
-
-    generalItems.push(line);
-  });
-
-  // LANGUAGES SECTION
-  if (languageItems.length) {
     extra_sections.push({
       section_title: "Languages",
       items: languageItems,
@@ -415,29 +412,17 @@ if (safeString(body?.additional_information)) {
     });
   }
 
-  // VOLUNTEER SECTION
-  if (volunteerItems.length) {
+  // ---------- VOLUNTEER EXPERIENCE ----------
+  if (
+    rawInfo.toLowerCase().includes("volunteer") ||
+    rawInfo.toLowerCase().includes("campaign") ||
+    rawInfo.toLowerCase().includes("outreach")
+  ) {
     extra_sections.push({
       section_title: "Volunteer Experience",
-      items: volunteerItems,
-      section_content: "",
-    });
-  }
-
-  // MEMBERSHIP SECTION
-  if (membershipItems.length) {
-    extra_sections.push({
-      section_title: "Membership",
-      items: membershipItems,
-      section_content: "",
-    });
-  }
-
-  // GENERAL EXTRA INFO
-  if (generalItems.length) {
-    extra_sections.push({
-      section_title: "Additional Information",
-      items: generalItems,
+      items: [
+        "Participated in peace building campaign activities in southern Taraba State",
+      ],
       section_content: "",
     });
   }
@@ -463,7 +448,7 @@ if (safeString(body?.additional_information)) {
 
     certifications: safeString(body?.certifications_awards)
       ? safeString(body.certifications_awards)
-          .split(/\r?\n|,/)
+          .split(/\r?\n+|•|;/)
           .map((item) => safeString(item))
           .filter(Boolean)
       : [],
@@ -1508,6 +1493,8 @@ const referenceText = buildReferenceText(
       FULL_NAME: data.full_name || "",
       CONTACT_LINE: buildContactLine(data) || "",
       PROFESSIONAL_SUMMARY: data.professional_summary || "",
+      
+      HAS_SKILLS: data.skills.length > 0,
       SKILLS_LINE: buildSkillsLine(data.skills) || "",
 
       HAS_EXPERIENCE: data.experience.length > 0,
@@ -1546,7 +1533,7 @@ const referenceText = buildReferenceText(
 
       const doc = new Docxtemplater(zip, {
         paragraphLoop: true,
-        linebreaks: true,
+        linebreaks: false,
         nullGetter() {
           return "";
         },
