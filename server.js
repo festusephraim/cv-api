@@ -1851,6 +1851,18 @@ app.post("/generate-cv", async (req, res) => {
     let requestBody;
 
     try {
+      console.log("FULL BODY:");
+  console.log(req.body);
+
+  console.log("BODY TYPE:");
+  console.log(typeof req.body);
+
+  console.log("RAW SUBMISSION JSON:");
+  console.log(req.body.raw_submission_json);
+
+  console.log("RAW SUBMISSION JSON TYPE:");
+  console.log(typeof req.body.raw_submission_json);
+
       requestBody = parseRequestBody(req.body);
     } catch (parseError) {
       return res.status(parseError.statusCode || 400).json({
