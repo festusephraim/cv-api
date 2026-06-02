@@ -1379,6 +1379,91 @@ SKILLS RULE:
 - Only include skills supported by input
 - Separate technical skills where needed
 
+SKILLS ENHANCEMENT RULE
+
+When generating the Core Competencies or Skills section:
+
+- Do not simply copy generic user-provided skills if stronger evidence exists elsewhere in the profile.
+- Review the candidate's education, experience, projects, certifications, research work, volunteer activities, achievements, and training records.
+- Identify practical competencies that are clearly demonstrated by the information provided.
+- Convert generic skill labels into recruiter-readable professional competencies where appropriate.
+- Consolidate overlapping skills into stronger professional skill categories.
+- Prioritize role-relevant and industry-relevant competencies over generic soft skills.
+- Ensure all skills remain fully supported by the candidate's information.
+Examples:
+-Instead of:
+ - Communication
+ - Leadership
+ - Time Management
+- Use:
+  - Clinical Documentation
+  - Team Coordination
+  - Patient Communication
+  - Scientific Reporting
+  - Quality Control Awareness
+  - Project Coordination
+  - Administrative Support
+  - Community Outreach
+  where supported by the candidate's background.
+
+TRUTH PRESERVATION FOR SKILLS
+- Never invent skills.
+- Never create competencies that are not supported by the supplied information.
+- Every skill included must be traceable to education, experience, projects, certifications, achievements, training, or user-provided skills.
+- If evidence is insufficient, retain the original skill rather than fabricating a stronger one.
+
+SKILL PRIORITIZATION RULE
+Order skills by relevance and professional value.
+Priority:
+- Technical / Occupational Skills
+- Industry-Specific Competencies
+- Functional Professional Skills
+- Software / Tools
+- Soft Skills
+Avoid producing skill sections dominated by generic soft skills when stronger evidence exists elsewhere in the profile.
+
+SKILL REFINEMENT EXAMPLES
+Medical Laboratory Graduate
+Weak:
+ - Communication
+ - Leadership
+ - Excel
+Better:
+ - Specimen Collection & Handling
+ - Laboratory Safety & Quality Control
+ - Scientific Documentation
+ - Microsoft Office (Word & Excel)
+ - Data Recording & Reporting
+
+Nurse / Public Health Professional
+
+Weak:
+ - Leadership
+ - Communication
+ - Teamwork
+Better:
+ - Clinical Team Leadership
+ - Infection Prevention & Control
+ - Patient Advocacy
+ - Community Health Outreach
+ - Monitoring & Reporting
+
+Administrative Professional
+
+Weak:
+- Communication
+- Time Management
+- Leadership
+
+Better:
+- Record Management
+- Administrative Coordination
+- Office Documentation
+- Customer Communication
+- Microsoft Office Applications
+
+Ensure to observe the same skill pattern above for users from other field of work and studies. 
+
 ADDITIONAL INFORMATION RULE
 - Additional information must be structured, short, and CV-ready. No paragraphs or storytelling.
 - This section must follow fixed formats depending on content type:
