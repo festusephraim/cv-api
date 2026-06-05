@@ -2000,14 +2000,27 @@ app.post("/generate-cv", async (req, res) => {
       });
     }
 
-    const incomingError = validateIncomingBody(requestBody);
-    if (incomingError) {
+const rawInput = normalizeIncomingPayload(requestBody);
+
+const templatePath = getTemplatePath(
+  requestBody?.candidate_level,
+  rawInput.experience.length
+);
+
+  const incomingError = validateIncomingBody(requestBody);
+  if (incomingError) {
       return res.status(400).json({
         success: false,
         error: incomingError,
       });
     }
 
+const rawInput = normalizeIncomingPayload(requestBody);
+
+const templatePath = getTemplatePath(
+  requestBody?.candidate_level,
+  rawInput.experience.length
+);
   
 if (!ensureTemplateExists(templatePath)) {
   return res.status(500).json({
@@ -2016,7 +2029,6 @@ if (!ensureTemplateExists(templatePath)) {
   });
 }
 
-    const rawInput = normalizeIncomingPayload(requestBody);
     const prompt = buildPrompt(rawInput);
 
     let completion;
