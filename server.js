@@ -43,7 +43,19 @@ const PORT = Number(process.env.PORT || 3001);
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 const NODE_ENV = process.env.NODE_ENV || "development";
 
-const TEMPLATE_PATH = path.join(process.cwd(), "templates", "cv-template.docx");
+function getTemplatePath(candidateLevel, experienceCount) {
+  const isProfessional =
+    safeString(candidateLevel).toLowerCase() === "professional candidate" &&
+    experienceCount >= 3;
+
+  return path.join(
+    process.cwd(),
+    "templates",
+    isProfessional
+      ? "template_professional.docx"
+      : "cv-template.docx"
+  );
+}
 
 
 if (!process.env.OPENAI_API_KEY) {
@@ -314,14 +326,31 @@ function parseRequestBody(reqBody) {
 
 function normalizeIncomingPayload(body) {
   const basicInfo = body?.basic_information || {};
-  const workExperience = clampArray(
+  const candidateLevel = safeString(
+  body?.candidate_level
+).toLowerCase();
+
+const experienceCount = safeArray(body?.work_experience).filter(
+  (item) =>
+    safeString(item?.job_title) ||
+    safeString(item?.company) ||
+    safeString(item?.what_did_you_do_in_this_role)
+).length;
+
+const experienceLimit =
+  candidateLevel === "professional candidate" &&
+  experienceCount >= 3
+    ? 5
+    : 3;
+
+const workExperience = clampArray(
   safeArray(body?.work_experience).filter(
     (item) =>
       safeString(item?.job_title) ||
       safeString(item?.company) ||
       safeString(item?.what_did_you_do_in_this_role)
   ),
-  3
+  experienceLimit
 );
   const education = clampArray(
   safeArray(body?.education).filter(
@@ -361,7 +390,7 @@ function normalizeIncomingPayload(body) {
 }));
 
 const shouldUseEduCompetencies =
-  mappedExperience.length < 2;
+  mappedExperience.length < 3;
 
 const mappedEducation = education.map((item) => ({
   degree: safeString(item?.degree_qualification),
@@ -1917,7 +1946,14 @@ app.get("/", (req, res) => {
     success: true,
     message: "CV API is running",
     environment: NODE_ENV,
-    template_exists: ensureTemplateExists(),
+    template_exists: {
+  entry: fs.existsSync(
+    path.join(process.cwd(), "templates", "cv-template.docx")
+  ),
+  professional: fs.existsSync(
+    path.join(process.cwd(), "templates", "template_professional.docx")
+  ),
+},
   });
 });
 
@@ -1926,7 +1962,14 @@ app.get("/api/health", (req, res) => {
     success: true,
     message: "Server is healthy",
     environment: NODE_ENV,
-    template_exists: ensureTemplateExists(),
+    template_exists: {
+  entry: fs.existsSync(
+    path.join(process.cwd(), "templates", "cv-template.docx")
+  ),
+  professional: fs.existsSync(
+    path.join(process.cwd(), "templates", "template_professional.docx")
+  ),
+},
   });
 });
 
@@ -2093,7 +2136,12 @@ const referenceText = buildReferenceText(
 
     let buffer;
     try {
-      const binaryTemplate = fs.readFileSync(TEMPLATE_PATH, "binary");
+  const templatePath = getTemplatePath(
+  requestBody?.candidate_level,
+  rawInput.experience.length
+);
+
+const binaryTemplate = fs.readFileSync(templatePath, "binary");
       const zip = new PizZip(binaryTemplate);
 
       const doc = new Docxtemplater(zip, {
