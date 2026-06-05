@@ -2000,12 +2000,6 @@ app.post("/generate-cv", async (req, res) => {
       });
     }
 
-const rawInput = normalizeIncomingPayload(requestBody);
-
-const templatePath = getTemplatePath(
-  requestBody?.candidate_level,
-  rawInput.experience.length
-);
 
   const incomingError = validateIncomingBody(requestBody);
   if (incomingError) {
@@ -2029,7 +2023,7 @@ if (!ensureTemplateExists(templatePath)) {
   });
 }
 
-    const prompt = buildPrompt(rawInput);
+  const prompt = buildPrompt(rawInput);
 
     let completion;
     try {
