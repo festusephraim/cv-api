@@ -1777,8 +1777,8 @@ ${JSON.stringify(rawInput, null, 2)}
 `.trim();
 }
 
-function ensureTemplateExists() {
-  return fs.existsSync(TEMPLATE_PATH);
+function ensureTemplateExists(templatePath) {
+  return fs.existsSync(templatePath);
 }
 
 /**
@@ -2008,12 +2008,13 @@ app.post("/generate-cv", async (req, res) => {
       });
     }
 
-    if (!ensureTemplateExists()) {
-      return res.status(500).json({
-        success: false,
-        error: "Template file not found: templates/cv-template.docx",
-      });
-    }
+  
+if (!ensureTemplateExists(templatePath)) {
+  return res.status(500).json({
+    success: false,
+    error: `Template file not found: ${templatePath}`,
+  });
+}
 
     const rawInput = normalizeIncomingPayload(requestBody);
     const prompt = buildPrompt(rawInput);
