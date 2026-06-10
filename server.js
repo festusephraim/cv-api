@@ -303,6 +303,10 @@ if (!referencesSectionMatch) {
 
 const referencesText =
   referencesSectionMatch?.[2] || "";
+console.log(
+  "REFERENCES MATCH:",
+  !!referencesSectionMatch
+);
 
   console.log(
   "REFERENCES TEXT:"
@@ -318,6 +322,10 @@ console.log(
 
 console.log(
   referencesText.substring(0, 1000)
+);
+
+console.log(
+  "LOOKING FOR REFERENCES SECTION"
 );
 
   const phoneRegex =
