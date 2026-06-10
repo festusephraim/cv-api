@@ -249,18 +249,21 @@ function buildReferenceDetailsFromEntries(entries) {
         .filter(Boolean)
         .join(", ");
 
-      const line3 = [
-        entry.email ? `Email: ${entry.email}` : "",
-        entry.phone ? `Phone: ${entry.phone}` : "",
-      ]
-        .filter(Boolean)
-        .join(", ");
+      let contactLine = "";
 
-      return [line1, line2, line3]
+      if (entry.email && entry.phone) {
+        contactLine = `Email: ${entry.email}, Phone: ${entry.phone}`;
+      } else if (entry.email) {
+        contactLine = `Email: ${entry.email}`;
+      } else if (entry.phone) {
+        contactLine = `Phone: ${entry.phone}`;
+      }
+
+      return [line1, line2, contactLine]
         .filter(Boolean)
         .join(" | ");
     })
-    .join(" ");
+    .join("\n\n");
 }
 
 function extractReferencesFromCvText(cvText) {
@@ -271,9 +274,9 @@ function extractReferencesFromCvText(cvText) {
   }
 
   const referencesSectionMatch =
-    text.match(
-      /referees?([\s\S]*)$/i
-    );
+  text.match(
+    /(references|referees)([\s\S]*)$/i
+  );
 
   if (!referencesSectionMatch) {
     return [];
@@ -314,14 +317,77 @@ function extractReferencesFromCvText(cvText) {
         .map((line) => line.trim())
         .filter(Boolean);
 
-    entries.push({
-      name: lines[0] || "",
-      position: lines[1] || "",
-      organization: lines[2] || "",
-      location: "",
-      email: "",
-      phone,
-    });
+   let name = "";
+let position = "";
+let organization = "";
+let location = "";
+
+const combinedText = lines
+  .join(" ")
+  .replace(/\s+/g, " ")
+  .trim();
+
+const parts = combinedText
+  .split(",")
+  .map((p) => p.trim())
+  .filter(Boolean);
+
+name = parts[0] || "";
+position = parts[1] || "";
+
+let remaining = parts.slice(2).join(", ");
+
+const knownLocations = [
+  "Port Harcourt",
+  "Lagos",
+  "Abuja",
+  "Warri",
+  "Eket",
+  "Yenagoa",
+  "Bonny",
+  "Onne",
+  "Owerri",
+  "Uyo"
+];
+
+const matchedLocation = knownLocations.find(
+  (city) =>
+    remaining
+      .toLowerCase()
+      .endsWith(city.toLowerCase())
+);
+
+if (matchedLocation) {
+  location = matchedLocation;
+
+  organization = remaining
+    .replace(
+      new RegExp(matchedLocation, "i"),
+      ""
+    )
+    .replace(/\s+/g, " ")
+    .trim();
+} else {
+  organization = remaining;
+}
+
+if (!position && lines[1]) {
+  position = lines[1];
+}
+
+if (!organization && lines[2]) {
+  organization = lines[2];
+}
+
+entries.push({
+  name,
+  position,
+  organization,
+  location,
+  email: "",
+  phone,
+});
+
   }
 
   return cleanReferenceEntries(entries);
@@ -475,22 +541,32 @@ if (
   company: safeString(item?.company),
   location: safeString(item?.location),
   start: safeString(item?.start_date),
-  end: item?.currently_working_here ? "" : safeString(item?.end_date),
+
+  end: item?.currently_working_here
+    ? "Present"
+    : safeString(item?.end_date),
+
   role_summary: "",
-  tasks: splitLinesToArray(item?.what_did_you_do_in_this_role, 5),
+  tasks: splitLinesToArray(
+    item?.what_did_you_do_in_this_role,
+    5
+  ),
 }));
 
 const shouldUseEduCompetencies =
-  mappedExperience.length < 3;
+  mappedExperience.length < 1;
 
 const mappedEducation = education.map((item) => ({
   degree: safeString(item?.degree_qualification),
   school: safeString(item?.school),
   location: safeString(item?.location),
   start: safeString(item?.start_date),
-  end: item?.currently_studying_here ? "" : safeString(item?.end_date),
-  edu_detail: safeString(item?.grade_result),
 
+  end: item?.currently_studying_here
+    ? "Present"
+    : safeString(item?.end_date),
+
+  edu_detail: safeString(item?.grade_result),
   edu_competencies: [],
 }));
 
@@ -498,8 +574,15 @@ const mappedProjects = projects.map((item) => ({
   project_title: safeString(item?.project_title),
   project_description: safeString(item?.project_description),
   start: safeString(item?.start_date),
-  end: item?.currently_working_on_this_project ? "" : safeString(item?.end_date),
-  project_tasks: splitLinesToArray(item?.what_did_you_do_in_this_project, 5),
+
+  end: item?.currently_working_on_this_project
+    ? "Present"
+    : safeString(item?.end_date),
+
+  project_tasks: splitLinesToArray(
+    item?.what_did_you_do_in_this_project,
+    5
+  ),
 }));
 
   const extra_sections = [];
@@ -698,8 +781,9 @@ function cleanStructuredData(data) {
     certifications: cleanCertificationsArray(data.certifications),
     extra_sections: cleanExtraSections(data.extra_sections),
 
-    reference_choice: normaliseReferenceChoice(data.reference_choice),
-    reference_details: safeString(data.reference_details),
+   reference_choice: normaliseReferenceChoice(data.reference_choice),
+reference_details: safeString(data.reference_details),
+references_list: cleanReferenceEntries(data.references_list),
   };
 }
 
@@ -2007,8 +2091,32 @@ required: ["section_title", "items", "section_content"],
       },
 
       reference_details: { type: "string" },
+
+references_list: {
+  type: "array",
+  items: {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      name: { type: "string" },
+      position: { type: "string" },
+      organization: { type: "string" },
+      location: { type: "string" },
+      email: { type: "string" },
+      phone: { type: "string" }
     },
     required: [
+      "name",
+      "position",
+      "organization",
+      "location",
+      "email",
+      "phone"
+    ]
+  }
+},
+    },
+required: [
   "full_name",
   "address",
   "phone",
@@ -2023,7 +2131,8 @@ required: ["section_title", "items", "section_content"],
   "certifications",
   "extra_sections",
   "reference_choice",
-  "reference_details"
+  "reference_details",
+  "references_list"
 ],
   },
 };
@@ -2205,9 +2314,47 @@ If the uploaded CV contains references, extract them and populate reference_deta
 
 If the uploaded CV contains leadership positions, memberships, research, languages, workshops, trainings or additional professional information, include them in extra_sections.
 
+If the uploaded CV contains research projects, dissertations, publications, thesis topics or academic research work etc, preserve them in extra_sections under the title "Research".
+
+Do not discard research topics even if they are not professional projects.
+
+Preserve software skills, computer skills and technical tools.
+Examples include Microsoft Word, Excel, PowerPoint, AutoCAD, SAP, MATLAB, Python and similar tools.
+Store them under either Skills or an extra section titled "Software Proficiency".
+For education, preserve the full degree title, field of study, institution name, country and graduation year whenever available.
+Do not shorten degree names if the original CV provides more detail.
+
+Preserve all leadership positions, professional memberships, awards, honours and affiliations found in the uploaded CV.
+Store them as separate extra_sections rather than discarding them.
+
 Only use form data to supplement or fill gaps where the uploaded CV does not provide information.
 
 The uploaded CV should override conflicting information from the form whenever professional history is more complete in the uploaded CV.
+
+EXTRACTION RULES:
+
+- Preserve every employment record found in the uploaded CV.
+- Preserve every certification found in the uploaded CV.
+- Preserve all research topics.
+- Preserve all professional memberships.
+- Preserve all leadership positions.
+- Preserve all software and computer skills.
+- Preserve all references if present.
+- Do not merge jobs together.
+- Do not invent dates.
+- If a date is missing, leave it blank.
+- If information exists in the uploaded CV but not in the form, use the uploaded CV.
+If references are present in the uploaded CV, extract them into references_list.
+
+Separate:
+- name
+- position
+- organization
+- location
+- email
+- phone
+
+Do not combine multiple fields into a single string.
 `;
 
 console.log(
