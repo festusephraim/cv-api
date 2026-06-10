@@ -1945,35 +1945,35 @@ app.post("/generate-cv", async (req, res) => {
   try {
 
     let requestBody;
+    let cvUrl = "";
+    let extractedCvText = "";
 
     try {
       console.log("FULL BODY:");
-  console.log(req.body);
+      console.log(req.body);
 
-  console.log("BODY TYPE:");
-  console.log(typeof req.body);
+      console.log("BODY TYPE:");
+      console.log(typeof req.body);
 
-  console.log("RAW SUBMISSION JSON:");
-  console.log(req.body.raw_submission_json);
+      console.log("RAW SUBMISSION JSON:");
+      console.log(req.body.raw_submission_json);
 
-  console.log("RAW SUBMISSION JSON TYPE:");
-  console.log(typeof req.body.raw_submission_json);
+      console.log("RAW SUBMISSION JSON TYPE:");
+      console.log(typeof req.body.raw_submission_json);
 
       requestBody = parseRequestBody(req.body);
-     
+
       const uploadedCvUrl =
-  requestBody.uploaded_cv_url;
+        requestBody.uploaded_cv_url;
 
-  let cvUrl = uploadedCvUrl;
+      cvUrl = uploadedCvUrl;
 
-if (
-  cvUrl &&
-  cvUrl.startsWith("//")
-) {
-  cvUrl = "https:" + cvUrl;
-}
-
-let extractedCvText = "";
+      if (
+        cvUrl &&
+        cvUrl.startsWith("//")
+      ) {
+        cvUrl = "https:" + cvUrl;
+      }
 
     } catch (parseError) {
       return res.status(parseError.statusCode || 400).json({
@@ -1983,60 +1983,61 @@ let extractedCvText = "";
       });
     }
 
-    if (CvUrl) {
+    if (cvUrl) {
 
-  const response = await axios.get(
-    CvUrl,
-    {
-      responseType: "arraybuffer"
+      const response = await axios.get(
+        cvUrl,
+        {
+          responseType: "arraybuffer"
+        }
+      );
+
+      const fileBuffer = Buffer.from(
+        response.data
+      );
+
+      if (
+        cvUrl.toLowerCase().includes(".pdf")
+      ) {
+
+        const pdfData =
+          await pdfParse(fileBuffer);
+
+        extractedCvText =
+          pdfData.text;
+
+      } else if (
+        cvUrl.toLowerCase().includes(".docx")
+      ) {
+
+        const result =
+          await mammoth.extractRawText({
+            buffer: fileBuffer
+          });
+
+        extractedCvText =
+          result.value;
+      }
     }
-  );
 
-  const fileBuffer = Buffer.from(
-    response.data
-  );
+    console.log(
+      "EXTRACTED CV TEXT:"
+    );
 
-  if (
-    CvUrl.toLowerCase().includes(".pdf")
-  ) {
+    console.log(
+      extractedCvText.substring(0, 1000)
+    );
 
-    const pdfData =
-      await pdfParse(fileBuffer);
+    const incomingError = validateIncomingBody(requestBody);
 
-    extractedCvText =
-      pdfData.text;
-
-  } else if (
-    CvUrl.toLowerCase().includes(".docx")
-  ) {
-
-    const result =
-      await mammoth.extractRawText({
-        buffer: fileBuffer
-      });
-
-    extractedCvText =
-      result.value;
-  }
-}
-
-console.log(
-  "EXTRACTED CV TEXT:"
-);
-
-console.log(
-  extractedCvText.substring(0, 1000)
-);
-
-
-  const incomingError = validateIncomingBody(requestBody);
-  if (incomingError) {
+    if (incomingError) {
       return res.status(400).json({
         success: false,
         error: incomingError,
       });
     }
 
+    
 const rawInput = normalizeIncomingPayload(requestBody);
 
 const templatePath = getTemplatePath(
