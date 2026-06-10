@@ -389,6 +389,11 @@ entries.push({
 });
 
   }
+  console.log(
+  "RAW REFERENCE ENTRIES:"
+);
+
+console.log(entries);
 
   return cleanReferenceEntries(entries);
 }
