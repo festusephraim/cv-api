@@ -237,31 +237,45 @@ function cleanReferenceEntries(entries) {
 }
 
 function buildReferenceDetailsFromEntries(entries) {
-  const cleanedEntries = cleanReferenceEntries(entries);
+  const cleanedEntries =
+    cleanReferenceEntries(entries);
 
   return cleanedEntries
     .map((entry) => {
-      const line1 = [entry.name, entry.position]
+      const line1 = [
+        entry.name,
+        entry.position
+      ]
         .filter(Boolean)
         .join(", ");
 
-      const line2 = [entry.organization, entry.location]
+      const line2 = [
+        entry.organization,
+        entry.location
+      ]
         .filter(Boolean)
         .join(", ");
 
       let contactLine = "";
 
       if (entry.email && entry.phone) {
-        contactLine = `Email: ${entry.email}, Phone: ${entry.phone}`;
+        contactLine =
+          `Email: ${entry.email} | Phone: ${entry.phone}`;
       } else if (entry.email) {
-        contactLine = `Email: ${entry.email}`;
+        contactLine =
+          `Email: ${entry.email}`;
       } else if (entry.phone) {
-        contactLine = `Phone: ${entry.phone}`;
+        contactLine =
+          `Phone: ${entry.phone}`;
       }
 
-      return [line1, line2, contactLine]
+      return [
+        line1,
+        line2,
+        contactLine
+      ]
         .filter(Boolean)
-        .join(" | ");
+        .join("\n");
     })
     .join("\n\n");
 }
@@ -386,6 +400,19 @@ if (!position && lines[1]) {
 if (!organization && lines[2]) {
   organization = lines[2];
 }
+
+console.log(
+  "REFERENCE PARSED:"
+);
+
+console.log({
+  name,
+  position,
+  organization,
+  location,
+  email: "",
+  phone,
+});
 
 entries.push({
   name,
