@@ -2316,7 +2316,18 @@ app.post("/generate-cv", async (req, res) => {
     console.log(
       extractedCvText.substring(0, 1000)
     );
+console.log(
+  "CV TEXT LENGTH:",
+  extractedCvText.length
+);
 
+console.log(
+  "LAST 2000 CHARS:"
+);
+
+console.log(
+  extractedCvText.slice(-2000)
+);
     requestBody.uploaded_cv_text =
   extractedCvText;
 
