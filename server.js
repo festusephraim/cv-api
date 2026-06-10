@@ -299,6 +299,14 @@ if (!referencesSectionMatch) {
 const referencesText =
   referencesSectionMatch?.[2] || "";
 
+  console.log(
+  "REFERENCES TEXT:"
+);
+
+console.log(
+  referencesText
+);
+
 console.log(
   "REFERENCES TEXT:"
 );
