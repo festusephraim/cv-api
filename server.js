@@ -571,6 +571,16 @@ const projects = safeArray(
     body?.references?.reference_entries
   );
 
+console.log(
+  "REFERENCE COUNT BEFORE EXTRACTION:",
+  referenceEntries.length
+);
+
+console.log(
+  "HAS uploaded_cv_text:",
+  !!body?.uploaded_cv_text
+);
+
 if (
   referenceEntries.length === 0 &&
   body?.uploaded_cv_text
@@ -2363,6 +2373,15 @@ console.log(
 
     
 const rawInput = normalizeIncomingPayload(requestBody);
+
+console.log(
+  "RAW INPUT REFERENCES:"
+);
+
+console.dir(
+  rawInput.reference_entries,
+  { depth: null }
+);
 
 const templatePath = getTemplatePath(
   requestBody?.candidate_level,
