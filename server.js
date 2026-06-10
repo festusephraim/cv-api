@@ -241,8 +241,14 @@ function buildReferenceDetailsFromEntries(entries) {
 
   return cleanedEntries
     .map((entry) => {
-      const line1 = [entry.name, entry.position].filter(Boolean).join(", ");
-      const line2 = [entry.organization, entry.location].filter(Boolean).join(", ");
+      const line1 = [entry.name, entry.position]
+        .filter(Boolean)
+        .join(", ");
+
+      const line2 = [entry.organization, entry.location]
+        .filter(Boolean)
+        .join(", ");
+
       const line3 = [
         entry.email ? `Email: ${entry.email}` : "",
         entry.phone ? `Phone: ${entry.phone}` : "",
@@ -251,20 +257,87 @@ function buildReferenceDetailsFromEntries(entries) {
         .join(", ");
 
       return [line1, line2, line3]
-  .filter(Boolean)
-  .join(" | ");
+        .filter(Boolean)
+        .join(" | ");
     })
     .join(" ");
+}
+
+function extractReferencesFromCvText(cvText) {
+  const text = safeString(cvText);
+
+  if (!text) {
+    return [];
+  }
+
+  const referencesSectionMatch =
+    text.match(
+      /referees?([\s\S]*)$/i
+    );
+
+  if (!referencesSectionMatch) {
+    return [];
+  }
+
+  const referencesText =
+    referencesSectionMatch[1];
+
+  const phoneRegex =
+    /(\+?\d[\d\s()-]{7,})/g;
+
+  const phones =
+    [...referencesText.matchAll(phoneRegex)];
+
+  const entries = [];
+
+  for (let i = 0; i < phones.length; i++) {
+    const phone =
+      phones[i][0].trim();
+
+    const startIndex =
+      i === 0
+        ? 0
+        : phones[i - 1].index +
+          phones[i - 1][0].length;
+
+    const endIndex =
+      phones[i].index;
+
+    const block =
+      referencesText
+        .substring(startIndex, endIndex)
+        .trim();
+
+    const lines =
+      block
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean);
+
+    entries.push({
+      name: lines[0] || "",
+      position: lines[1] || "",
+      organization: lines[2] || "",
+      location: "",
+      email: "",
+      phone,
+    });
+  }
+
+  return cleanReferenceEntries(entries);
 }
 
 function buildReferenceText(referenceChoice, referenceDetails) {
   switch (referenceChoice) {
     case "included":
       return safeString(referenceDetails);
+
     case "available":
       return "References available upon request";
+
     case "none":
       return "";
+
     default:
       return "References available upon request";
   }
@@ -366,16 +439,37 @@ const projects = safeArray(
     safeString(item?.project_description)
 );
 
-  const referenceEntries = cleanReferenceEntries(body?.references?.reference_entries);
-  const builtReferenceDetails = buildReferenceDetailsFromEntries(referenceEntries);
+  let referenceEntries =
+  cleanReferenceEntries(
+    body?.references?.reference_entries
+  );
 
-  let reference_choice = normaliseReferenceChoice(
+if (
+  referenceEntries.length === 0 &&
+  body?.uploaded_cv_text
+) {
+  referenceEntries =
+    extractReferencesFromCvText(
+      body.uploaded_cv_text
+    );
+}
+
+const builtReferenceDetails =
+  buildReferenceDetailsFromEntries(
+    referenceEntries
+  );
+
+let reference_choice =
+  normaliseReferenceChoice(
     body?.references_section_preference
   );
 
-  if (reference_choice === "included" && !builtReferenceDetails) {
-    reference_choice = "available";
-  }
+if (
+  reference_choice === "included" &&
+  referenceEntries.length === 0
+) {
+  reference_choice = "available";
+}
   const mappedExperience = workExperience.map((item) => ({
   title: safeString(item?.job_title),
   company: safeString(item?.company),
@@ -1914,45 +2008,23 @@ required: ["section_title", "items", "section_content"],
 
       reference_details: { type: "string" },
     },
-    references_list: {
-  type: "array",
-  items: {
-    type: "object",
-    additionalProperties: false,
-    properties: {
-      name: { type: "string" },
-      position: { type: "string" },
-      organization: { type: "string" },
-      phone: { type: "string" },
-      email: { type: "string" }
-    },
     required: [
-      "name",
-      "position",
-      "organization",
-      "phone",
-      "email"
-    ]
-  }
-},
-    required: [
-      "full_name",
-      "address",
-      "phone",
-      "email",
-      "linkedin",
-      "job_description",
-      "professional_summary",
-      "skills",
-      "experience",
-      "projects",
-      "education",
-      "certifications",
-      "extra_sections",
-      "reference_choice",
-      "reference_details",
-      "references_list"
-    ],
+  "full_name",
+  "address",
+  "phone",
+  "email",
+  "linkedin",
+  "job_description",
+  "professional_summary",
+  "skills",
+  "experience",
+  "projects",
+  "education",
+  "certifications",
+  "extra_sections",
+  "reference_choice",
+  "reference_details"
+],
   },
 };
 
@@ -2083,6 +2155,9 @@ app.post("/generate-cv", async (req, res) => {
     console.log(
       extractedCvText.substring(0, 1000)
     );
+
+    requestBody.uploaded_cv_text =
+  extractedCvText;
 
     const incomingError = validateIncomingBody(requestBody);
 
