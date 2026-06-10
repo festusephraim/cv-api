@@ -267,11 +267,6 @@ function buildReferenceDetailsFromEntries(entries) {
 }
 
 function extractReferencesFromCvText(cvText) {
-
-  console.log(
-    "extractReferencesFromCvText CALLED"
-  );
-
   const text = safeString(cvText);
 
   if (!text) {
@@ -283,36 +278,12 @@ function extractReferencesFromCvText(cvText) {
     /(references|referees)([\s\S]*)$/i
   );
 
-if (!referencesSectionMatch) {
-  return [];
-}
+  if (!referencesSectionMatch) {
+    return [];
+  }
 
-const referencesText =
-  referencesSectionMatch?.[2] || "";
-console.log(
-  "REFERENCES MATCH:",
-  !!referencesSectionMatch
-);
-
-  console.log(
-  "REFERENCES TEXT:"
-);
-
-console.log(
-  referencesText
-);
-
-console.log(
-  "REFERENCES TEXT:"
-);
-
-console.log(
-  referencesText.substring(0, 1000)
-);
-
-console.log(
-  "LOOKING FOR REFERENCES SECTION"
-);
+  const referencesText =
+    referencesSectionMatch[1];
 
   const phoneRegex =
     /(\+?\d[\d\s()-]{7,})/g;
@@ -407,19 +378,6 @@ if (!position && lines[1]) {
 if (!organization && lines[2]) {
   organization = lines[2];
 }
-
-console.log(
-  "REFERENCE PARSED:"
-);
-
-console.log({
-  name,
-  position,
-  organization,
-  location,
-  email: "",
-  phone,
-});
 
 entries.push({
   name,
@@ -522,12 +480,7 @@ function parseRequestBody(reqBody) {
 }
 
 function normalizeIncomingPayload(body) {
-
-  console.log("NORMALIZE START");
   const basicInfo = body?.basic_information || {};
-
-  console.log("NORMALIZE AFTER BASICINFO");
-
   const candidateLevel = safeString(
   body?.candidate_level
 ).toLowerCase();
@@ -557,30 +510,15 @@ const projects = safeArray(
     safeString(item?.project_description)
 );
 
-console.log("BEFORE REFERENCE CLEAN");
-
   let referenceEntries =
   cleanReferenceEntries(
     body?.references?.reference_entries
   );
 
-console.log("AFTER REFERENCE CLEAN");
-
-console.log(
-  "REFERENCE COUNT BEFORE EXTRACTION:",
-  referenceEntries.length
-);
-
-console.log(
-  "HAS uploaded_cv_text:",
-  !!body?.uploaded_cv_text
-);
-
 if (
   referenceEntries.length === 0 &&
   body?.uploaded_cv_text
 ) {
-  console.log("ABOUT TO EXTRACT REFERENCES");
   referenceEntries =
     extractReferencesFromCvText(
       body.uploaded_cv_text
@@ -591,16 +529,6 @@ const builtReferenceDetails =
   buildReferenceDetailsFromEntries(
     referenceEntries
   );
-
-  console.log(
-  "REFERENCE DETAILS AFTER NORMALIZATION:"
-);
-console.log(builtReferenceDetails);
-
-console.log(
-  "REFERENCE ENTRIES AFTER EXTRACTION:"
-);
-console.log(referenceEntries);
 
 let reference_choice =
   normaliseReferenceChoice(
@@ -2343,29 +2271,11 @@ app.post("/generate-cv", async (req, res) => {
     console.log(
       extractedCvText.substring(0, 1000)
     );
-console.log(
-  "CV TEXT LENGTH:",
-  extractedCvText.length
-);
-
-console.log(
-  "LAST 2000 CHARS:"
-);
-
-console.log(
-  extractedCvText.slice(-2000)
-);
-
-console.log("STEP 1");
 
     requestBody.uploaded_cv_text =
   extractedCvText;
 
-  console.log("STEP 2");
-
     const incomingError = validateIncomingBody(requestBody);
-
-    console.log("STEP 3");
 
     if (incomingError) {
       return res.status(400).json({
@@ -2375,31 +2285,7 @@ console.log("STEP 1");
     }
 
     
-let rawInput;
-
-try {
-  console.log("ABOUT TO NORMALIZE");
-
-  rawInput = normalizeIncomingPayload(requestBody);
-
-  console.log("NORMALIZATION SUCCESS");
-} catch (err) {
-  console.error("NORMALIZATION ERROR:");
-  console.error(err);
-  console.error(err.stack);
-
-  return res.status(500).json({
-    success: false,
-    error: err.message,
-  });
-}
-
-console.log("STEP 4");
-
-console.dir(
-  rawInput.reference_entries,
-  { depth: null }
-);
+const rawInput = normalizeIncomingPayload(requestBody);
 
 const templatePath = getTemplatePath(
   requestBody?.candidate_level,
@@ -2605,9 +2491,6 @@ const referenceText = buildReferenceText(
   rawInput.reference_choice,
   rawInput.reference_details
 );
-
-console.log("REFERENCE TEXT:");
-console.log(referenceText);
 
     const renderData = {
       FULL_NAME: data.full_name || "",
