@@ -522,7 +522,12 @@ function parseRequestBody(reqBody) {
 }
 
 function normalizeIncomingPayload(body) {
+
+  console.log("NORMALIZE START");
   const basicInfo = body?.basic_information || {};
+
+  console.log("NORMALIZE AFTER BASICINFO");
+
   const candidateLevel = safeString(
   body?.candidate_level
 ).toLowerCase();
@@ -552,10 +557,14 @@ const projects = safeArray(
     safeString(item?.project_description)
 );
 
+console.log("BEFORE REFERENCE CLEAN");
+
   let referenceEntries =
   cleanReferenceEntries(
     body?.references?.reference_entries
   );
+
+console.log("AFTER REFERENCE CLEAN");
 
 console.log(
   "REFERENCE COUNT BEFORE EXTRACTION:",
@@ -571,6 +580,7 @@ if (
   referenceEntries.length === 0 &&
   body?.uploaded_cv_text
 ) {
+  console.log("ABOUT TO EXTRACT REFERENCES");
   referenceEntries =
     extractReferencesFromCvText(
       body.uploaded_cv_text
@@ -2365,7 +2375,24 @@ console.log("STEP 1");
     }
 
     
-const rawInput = normalizeIncomingPayload(requestBody);
+let rawInput;
+
+try {
+  console.log("ABOUT TO NORMALIZE");
+
+  rawInput = normalizeIncomingPayload(requestBody);
+
+  console.log("NORMALIZATION SUCCESS");
+} catch (err) {
+  console.error("NORMALIZATION ERROR:");
+  console.error(err);
+  console.error(err.stack);
+
+  return res.status(500).json({
+    success: false,
+    error: err.message,
+  });
+}
 
 console.log("STEP 4");
 
