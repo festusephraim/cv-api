@@ -2292,6 +2292,28 @@ if (!ensureTemplateExists(templatePath)) {
   });
 }
 
+if (
+  rawInput.reference_entries.length === 0 &&
+  extractedCvText
+) {
+  rawInput.reference_entries =
+    extractReferencesFromCvText(
+      extractedCvText
+    );
+
+  rawInput.reference_details =
+    buildReferenceDetailsFromEntries(
+      rawInput.reference_entries
+    );
+
+  if (
+    rawInput.reference_entries.length > 0
+  ) {
+    rawInput.reference_choice =
+      "included";
+  }
+}
+
   const prompt = buildPrompt(rawInput) + `
 
 UPLOADED CV CONTENT:
@@ -2377,6 +2399,13 @@ console.log(
   rawInput.reference_details
 );
 
+console.log(
+  "REFERENCES EXTRACTED FROM CV:"
+);
+
+console.log(
+  rawInput.reference_entries
+);
     let completion;
     try {
       completion = await openai.responses.create({
