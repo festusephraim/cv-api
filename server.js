@@ -2052,7 +2052,22 @@ if (!ensureTemplateExists(templatePath)) {
   });
 }
 
-  const prompt = buildPrompt(rawInput);
+  const prompt = buildPrompt(rawInput) + `
+
+UPLOADED CV CONTENT:
+
+${extractedCvText}
+
+IMPORTANT:
+Use the uploaded CV content as the primary source of truth.
+Extract work experience, education, certifications, skills, projects, leadership positions, memberships, trainings and achievements from the uploaded CV.
+Do not treat the candidate as a recent graduate if substantial experience exists in the uploaded CV.
+`;
+
+console.log(
+  "PROMPT LENGTH:",
+  prompt.length
+);
 
     let completion;
     try {
