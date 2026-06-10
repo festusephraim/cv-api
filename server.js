@@ -2402,10 +2402,9 @@ try {
 
 console.log("STEP 4");
 
-console.dir(
-  rawInput.reference_entries,
-  { depth: null }
-);
+console.dir(body, {
+  depth: null
+});
 
 const templatePath = getTemplatePath(
   requestBody?.candidate_level,
