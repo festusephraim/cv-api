@@ -527,9 +527,9 @@ function normalizeIncomingPayload(body) {
     "ENTERED normalizeIncomingPayload"
   );
 
-  console.dir(payload, {
-    depth: null
-  });
+  console.dir(body, {
+  depth: null
+});
   const basicInfo = body?.basic_information || {};
 
   console.log("NORMALIZE AFTER BASICINFO");
@@ -2402,9 +2402,10 @@ try {
 
 console.log("STEP 4");
 
-console.dir(body, {
-  depth: null
-});
+console.dir(
+  rawInput.reference_entries,
+  { depth: null }
+);
 
 const templatePath = getTemplatePath(
   requestBody?.candidate_level,
