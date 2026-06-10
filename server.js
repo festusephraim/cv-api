@@ -278,12 +278,20 @@ function extractReferencesFromCvText(cvText) {
     /(references|referees)([\s\S]*)$/i
   );
 
-  if (!referencesSectionMatch) {
-    return [];
-  }
+if (!referencesSectionMatch) {
+  return [];
+}
 
-  const referencesText =
-    referencesSectionMatch[1];
+const referencesText =
+  referencesSectionMatch?.[2] || "";
+
+console.log(
+  "REFERENCES TEXT:"
+);
+
+console.log(
+  referencesText.substring(0, 1000)
+);
 
   const phoneRegex =
     /(\+?\d[\d\s()-]{7,})/g;
@@ -614,7 +622,7 @@ if (safeString(body?.additional_information)) {
     });
 
     extra_sections.push({
-      section_title: "Languages",
+      section_title: "LANGUAGES",
       items: languageItems,
       section_content: "",
     });
@@ -627,7 +635,7 @@ if (safeString(body?.additional_information)) {
     rawInfo.toLowerCase().includes("outreach")
   ) {
     extra_sections.push({
-      section_title: "Volunteer Experience",
+      section_title: "VOLUNTEER EXPERIENCE",
       items: [
         "Participated in peace building campaign activities in southern Taraba State",
       ],
@@ -744,7 +752,9 @@ function cleanCertificationsArray(certifications) {
 function cleanExtraSections(extraSections) {
   return safeArray(extraSections)
     .map((item) => ({
-      section_title: safeString(item?.section_title),
+      section_title: safeString(
+       item?.section_title
+        ).toUpperCase(),
       items: normaliseBulletArray(
         item?.items,
         50
