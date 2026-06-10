@@ -185,20 +185,17 @@ function endOrPresent(value) {
   return cleaned || "Present";
 }
 
-function normaliseBulletArray(items, max = 4) {
-  return clampArray(safeArray(items), max)
+function normaliseBulletArray(items) {
+  return safeArray(items)
     .map((item) => safeString(item))
     .filter(Boolean);
 }
 
-function splitLinesToArray(value, max = 5) {
-  return clampArray(
-    safeString(value)
-      .split(/\r?\n|•|;/)
-      .map((item) => safeString(item))
-      .filter(Boolean),
-    max
-  );
+function splitLinesToArray(value) {
+  return safeString(value)
+    .split(/\r?\n|•|;/)
+    .map((item) => safeString(item))
+    .filter(Boolean);
 }
 
 function splitSkills(value) {
@@ -344,43 +341,29 @@ function normalizeIncomingPayload(body) {
   body?.candidate_level
 ).toLowerCase();
 
-const experienceCount = safeArray(body?.work_experience).filter(
+const workExperience = safeArray(
+  body?.work_experience
+).filter(
   (item) =>
     safeString(item?.job_title) ||
     safeString(item?.company) ||
     safeString(item?.what_did_you_do_in_this_role)
-).length;
-
-const experienceLimit =
-  candidateLevel === "professional candidate" &&
-  experienceCount >= 3
-    ? 5
-    : 3;
-
-const workExperience = clampArray(
-  safeArray(body?.work_experience).filter(
-    (item) =>
-      safeString(item?.job_title) ||
-      safeString(item?.company) ||
-      safeString(item?.what_did_you_do_in_this_role)
-  ),
-  experienceLimit
 );
-  const education = clampArray(
-  safeArray(body?.education).filter(
-    (item) =>
-      safeString(item?.degree_qualification) ||
-      safeString(item?.school)
-  ),
-  3
+
+const education = safeArray(
+  body?.education
+).filter(
+  (item) =>
+    safeString(item?.degree_qualification) ||
+    safeString(item?.school)
 );
-  const projects = clampArray(
-  safeArray(body?.projects_research).filter(
-    (item) =>
-      safeString(item?.project_title) ||
-      safeString(item?.project_description)
-  ),
-  3
+
+const projects = safeArray(
+  body?.projects_research
+).filter(
+  (item) =>
+    safeString(item?.project_title) ||
+    safeString(item?.project_description)
 );
 
   const referenceEntries = cleanReferenceEntries(body?.references?.reference_entries);
@@ -505,7 +488,7 @@ if (safeString(body?.additional_information)) {
 }
 
 function cleanExperienceArray(experience) {
-  return clampArray(safeArray(experience), 5)
+  return safeArray(experience)
     .map((item) => ({
       title: safeString(item?.title),
       company: safeString(item?.company),
@@ -514,20 +497,28 @@ function cleanExperienceArray(experience) {
       end: safeString(item?.end),
       end_or_present: endOrPresent(item?.end),
       role_summary: safeString(item?.role_summary),
-      tasks: normaliseBulletArray(item?.tasks, 5),
+      tasks: normaliseBulletArray(item?.tasks, 20),
     }))
-    .filter((item) => item.title || item.company || item.tasks.length);
+    .filter(
+      (item) =>
+        item.title ||
+        item.company ||
+        item.tasks.length
+    );
 }
 
 function cleanProjectsArray(projects) {
-  return clampArray(safeArray(projects), 4)
+  return safeArray(projects)
     .map((item) => ({
       project_title: safeString(item?.project_title),
       project_description: safeString(item?.project_description),
       start: safeString(item?.start),
       end: safeString(item?.end),
       end_or_present: endOrPresent(item?.end),
-      project_tasks: normaliseBulletArray(item?.project_tasks, 4),
+      project_tasks: normaliseBulletArray(
+        item?.project_tasks,
+        20
+      ),
     }))
     .filter(
       (item) =>
@@ -540,7 +531,7 @@ function cleanProjectsArray(projects) {
 }
 
 function cleanEducationArray(education) {
-  return clampArray(safeArray(education), 3)
+  return safeArray(education)
     .map((item) => ({
       degree: safeString(item?.degree),
       school: safeString(item?.school),
@@ -552,29 +543,41 @@ function cleanEducationArray(education) {
 
       edu_competencies: normaliseBulletArray(
         item?.edu_competencies,
-        4
+        20
       ),
     }))
-    .filter((item) => item.degree || item.school);
+    .filter(
+      (item) =>
+        item.degree ||
+        item.school
+    );
 }
 
 function cleanCertificationsArray(certifications) {
-  return clampArray(safeArray(certifications), 8)
+  return safeArray(certifications)
     .map((item) => safeString(item))
     .filter(Boolean);
 }
 
 function cleanExtraSections(extraSections) {
-  return clampArray(safeArray(extraSections), 6)
+  return safeArray(extraSections)
     .map((item) => ({
       section_title: safeString(item?.section_title),
-      items: normaliseBulletArray(item?.items, 10),
-      section_content: safeString(item?.section_content),
+      items: normaliseBulletArray(
+        item?.items,
+        50
+      ),
+      section_content: safeString(
+        item?.section_content
+      ),
     }))
     .filter(
       (item) =>
         item.section_content ||
-        (Array.isArray(item.items) && item.items.length > 0)
+        (
+          Array.isArray(item.items) &&
+          item.items.length > 0
+        )
     );
 }
 
@@ -616,22 +619,37 @@ function preserveSectionDatesFromRawInput(parsed, rawInput) {
   const rawProjects = safeArray(rawInput?.projects);
 
   parsed.experience = parsedExperience.map((item, index) => ({
-    ...item,
-    start: safeString(rawExperience[index]?.start),
-    end: safeString(rawExperience[index]?.end),
-  }));
+  ...item,
+  start:
+    safeString(rawExperience[index]?.start) ||
+    safeString(item?.start),
+
+  end:
+    safeString(rawExperience[index]?.end) ||
+    safeString(item?.end),
+}));
 
   parsed.education = parsedEducation.map((item, index) => ({
-    ...item,
-    start: safeString(rawEducation[index]?.start),
-    end: safeString(rawEducation[index]?.end),
-  }));
+  ...item,
+  start:
+    safeString(rawEducation[index]?.start) ||
+    safeString(item?.start),
+
+  end:
+    safeString(rawEducation[index]?.end) ||
+    safeString(item?.end),
+}));
 
   parsed.projects = parsedProjects.map((item, index) => ({
-    ...item,
-    start: safeString(rawProjects[index]?.start),
-    end: safeString(rawProjects[index]?.end),
-  }));
+  ...item,
+  start:
+    safeString(rawProjects[index]?.start) ||
+    safeString(item?.start),
+
+  end:
+    safeString(rawProjects[index]?.end) ||
+    safeString(item?.end),
+}));
 
   return parsed;
 }
@@ -1896,6 +1914,27 @@ required: ["section_title", "items", "section_content"],
 
       reference_details: { type: "string" },
     },
+    references_list: {
+  type: "array",
+  items: {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      name: { type: "string" },
+      position: { type: "string" },
+      organization: { type: "string" },
+      phone: { type: "string" },
+      email: { type: "string" }
+    },
+    required: [
+      "name",
+      "position",
+      "organization",
+      "phone",
+      "email"
+    ]
+  }
+},
     required: [
       "full_name",
       "address",
@@ -1912,6 +1951,7 @@ required: ["section_title", "items", "section_content"],
       "extra_sections",
       "reference_choice",
       "reference_details",
+      "references_list"
     ],
   },
 };
@@ -2074,15 +2114,45 @@ UPLOADED CV CONTENT:
 
 ${extractedCvText}
 
-IMPORTANT:
-Use the uploaded CV content as the primary source of truth.
-Extract work experience, education, certifications, skills, projects, leadership positions, memberships, trainings and achievements from the uploaded CV.
-Do not treat the candidate as a recent graduate if substantial experience exists in the uploaded CV.
+CRITICAL INSTRUCTIONS:
+
+The uploaded CV is the PRIMARY source of truth.
+
+If the uploaded CV contains work experience, education, certifications, trainings, memberships, leadership positions, projects, achievements, research, publications, awards, references, languages, competencies or any other career information, extract and use them.
+
+Do NOT ignore information simply because it is not present in the form submission.
+
+Do NOT reduce the candidate's experience level if the uploaded CV shows substantial professional experience.
+
+Preserve as many valid positions, certifications, trainings, projects and education records as are present in the uploaded CV.
+
+If the uploaded CV contains references, extract them and populate reference_details.
+
+If the uploaded CV contains leadership positions, memberships, research, languages, workshops, trainings or additional professional information, include them in extra_sections.
+
+Only use form data to supplement or fill gaps where the uploaded CV does not provide information.
+
+The uploaded CV should override conflicting information from the form whenever professional history is more complete in the uploaded CV.
 `;
 
 console.log(
   "PROMPT LENGTH:",
   prompt.length
+);
+
+console.log(
+  "REFERENCE ENTRIES:",
+  rawInput.reference_entries
+);
+
+console.log(
+  "REFERENCE CHOICE:",
+  rawInput.reference_choice
+);
+
+console.log(
+  "REFERENCE DETAILS:",
+  rawInput.reference_details
 );
 
     let completion;
