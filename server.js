@@ -637,8 +637,21 @@ function preserveSectionDatesFromRawInput(parsed, rawInput) {
 }
 
 function preserveReferencesFromRawInput(parsed, rawInput) {
-  parsed.reference_choice = rawInput.reference_choice;
-  parsed.reference_details = rawInput.reference_details;
+
+  if (
+    !safeString(parsed.reference_details)
+  ) {
+    parsed.reference_details =
+      rawInput.reference_details;
+  }
+
+  if (
+    !safeString(parsed.reference_choice)
+  ) {
+    parsed.reference_choice =
+      rawInput.reference_choice;
+  }
+
   return parsed;
 }
 
@@ -679,6 +692,9 @@ IMPORTANT CONTEXT:
 - If there are no experience, prioritise stronger edu_competencies generation
 - If experience entry is 1 or more, edu_competencies should be empty
 
+- If references or referees are present in the uploaded CV, extract them and include them in reference_details.
+- Do not replace existing referee information with "References available upon request" when referee details exist.
+- Preserve referee names, positions, organizations, phone numbers and email addresses whenever available.
 
 ENTRY LEVEL TEMPLATE
 Use this when:
