@@ -2367,7 +2367,7 @@ console.log("STEP 1");
     
 const rawInput = normalizeIncomingPayload(requestBody);
 
-cconsole.log("STEP 4");
+console.log("STEP 4");
 
 console.dir(
   rawInput.reference_entries,
