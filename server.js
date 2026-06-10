@@ -278,12 +278,20 @@ function extractReferencesFromCvText(cvText) {
     /(references|referees)([\s\S]*)$/i
   );
 
-  if (!referencesSectionMatch) {
-    return [];
-  }
+if (!referencesSectionMatch) {
+  return [];
+}
 
-  const referencesText =
-    referencesSectionMatch[1];
+const referencesText =
+  referencesSectionMatch?.[2] || "";
+
+console.log(
+  "REFERENCES TEXT:"
+);
+
+console.log(
+  referencesText.substring(0, 1000)
+);
 
   const phoneRegex =
     /(\+?\d[\d\s()-]{7,})/g;
