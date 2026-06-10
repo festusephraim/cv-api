@@ -2359,10 +2359,17 @@ console.log(
 console.log(
   extractedCvText.slice(-2000)
 );
+
+console.log("STEP 1");
+
     requestBody.uploaded_cv_text =
   extractedCvText;
 
+  console.log("STEP 2");
+
     const incomingError = validateIncomingBody(requestBody);
+
+    console.log("STEP 3");
 
     if (incomingError) {
       return res.status(400).json({
@@ -2374,9 +2381,7 @@ console.log(
     
 const rawInput = normalizeIncomingPayload(requestBody);
 
-console.log(
-  "RAW INPUT REFERENCES:"
-);
+cconsole.log("STEP 4");
 
 console.dir(
   rawInput.reference_entries,
