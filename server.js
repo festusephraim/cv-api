@@ -523,7 +523,13 @@ function parseRequestBody(reqBody) {
 
 function normalizeIncomingPayload(body) {
 
-  console.log("NORMALIZE START");
+  console.log(
+    "ENTERED normalizeIncomingPayload"
+  );
+
+  console.dir(payload, {
+    depth: null
+  });
   const basicInfo = body?.basic_information || {};
 
   console.log("NORMALIZE AFTER BASICINFO");
