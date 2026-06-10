@@ -8,6 +8,10 @@ const PizZip = require("pizzip");
 const Docxtemplater = require("docxtemplater");
 const { OpenAI } = require("openai");
 
+const axios = require("axios");
+const pdfParse = require("pdf-parse");
+const mammoth = require("mammoth");
+
 const { S3Client, PutObjectCommand, GetObjectCommand } = require("@aws-sdk/client-s3");
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 
@@ -44,8 +48,18 @@ const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 const NODE_ENV = process.env.NODE_ENV || "development";
 
 function getTemplatePath(candidateLevel, experienceCount) {
+  const level = safeString(candidateLevel).toLowerCase();
+
+  if (level === "executive candidate") {
+    return path.join(
+      process.cwd(),
+      "templates",
+      "template_executive.docx"
+    );
+  }
+
   const isProfessional =
-    safeString(candidateLevel).toLowerCase() === "professional candidate" &&
+    level === "professional candidate" &&
     experienceCount >= 3;
 
   return path.join(
@@ -1920,6 +1934,9 @@ app.get("/api/health", (req, res) => {
   professional: fs.existsSync(
     path.join(process.cwd(), "templates", "template_professional.docx")
   ),
+  executive: fs.existsSync(
+    path.join(process.cwd(), "templates", "template_executive.docx")
+  ),
 },
   });
 });
@@ -1943,6 +1960,21 @@ app.post("/generate-cv", async (req, res) => {
   console.log(typeof req.body.raw_submission_json);
 
       requestBody = parseRequestBody(req.body);
+     
+      const uploadedCvUrl =
+  requestBody.uploaded_cv_url;
+
+  let cvUrl = uploadedCvUrl;
+
+if (
+  cvUrl &&
+  cvUrl.startsWith("//")
+) {
+  cvUrl = "https:" + cvUrl;
+}
+
+let extractedCvText = "";
+
     } catch (parseError) {
       return res.status(parseError.statusCode || 400).json({
         success: false,
@@ -1950,6 +1982,51 @@ app.post("/generate-cv", async (req, res) => {
         details: parseError.details || "",
       });
     }
+
+    if (CvUrl) {
+
+  const response = await axios.get(
+    CvUrl,
+    {
+      responseType: "arraybuffer"
+    }
+  );
+
+  const fileBuffer = Buffer.from(
+    response.data
+  );
+
+  if (
+    CvUrl.toLowerCase().includes(".pdf")
+  ) {
+
+    const pdfData =
+      await pdfParse(fileBuffer);
+
+    extractedCvText =
+      pdfData.text;
+
+  } else if (
+    CvUrl.toLowerCase().includes(".docx")
+  ) {
+
+    const result =
+      await mammoth.extractRawText({
+        buffer: fileBuffer
+      });
+
+    extractedCvText =
+      result.value;
+  }
+}
+
+console.log(
+  "EXTRACTED CV TEXT:"
+);
+
+console.log(
+  extractedCvText.substring(0, 1000)
+);
 
 
   const incomingError = validateIncomingBody(requestBody);
