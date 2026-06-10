@@ -565,6 +565,16 @@ const builtReferenceDetails =
     referenceEntries
   );
 
+  console.log(
+  "REFERENCE DETAILS AFTER NORMALIZATION:"
+);
+console.log(builtReferenceDetails);
+
+console.log(
+  "REFERENCE ENTRIES AFTER EXTRACTION:"
+);
+console.log(referenceEntries);
+
 let reference_choice =
   normaliseReferenceChoice(
     body?.references_section_preference
