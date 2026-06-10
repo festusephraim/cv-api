@@ -281,6 +281,11 @@ function buildReferenceDetailsFromEntries(entries) {
 }
 
 function extractReferencesFromCvText(cvText) {
+
+  console.log(
+    "extractReferencesFromCvText CALLED"
+  );
+
   const text = safeString(cvText);
 
   if (!text) {
