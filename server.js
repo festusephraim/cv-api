@@ -2493,9 +2493,31 @@ EXTRACTION RULES:
 - Do not invent dates.
 - If a date is missing, leave it blank.
 - If information exists in the uploaded CV but not in the form, use the uploaded CV.
-If references are present in the uploaded CV, extract them into references_list.
 
-Separate:
+DATE PRESERVATION RULES:
+
+When preserving employment history from the uploaded CV:
+
+- Never invent employment dates.
+- Never assume a position is current unless the uploaded CV explicitly states "Present", "Current", or an ongoing date range.
+- If only an end year is available, preserve only the end year.
+- If both start and end dates are missing, leave both blank.
+- Do not output "Present" when no start date exists.
+- Do not create date ranges using guessed dates.
+EMPLOYMENT QUALITY RULES:
+
+Before returning employment records:
+
+- Verify that each position contains a valid title and employer.
+- If dates are unclear or missing, preserve the position but leave the date fields blank.
+- Never fabricate employment periods.
+
+REFERENCES EXTRACTION RULES
+
+When a References or Referees section exists, create one references_list object per referee.
+
+For each referee extract:
+
 - name
 - position
 - organization
@@ -2503,7 +2525,35 @@ Separate:
 - email
 - phone
 
-Do not combine multiple fields into a single string.
+Do not combine fields.
+
+Do not place phone numbers inside organization.
+
+Do not place the word "Phone" inside organization.
+
+Do not place name and position in the same field.
+
+If a referee appears as:
+
+Engr. Morrison Chukuka
+Regional Manager, Montego Nigeria Limited
+Port Harcourt
+Phone: +2347034034456
+
+Return:
+
+{
+  "name": "Engr. Morrison Chukuka",
+  "position": "Regional Manager",
+  "organization": "Montego Nigeria Limited",
+  "location": "Port Harcourt",
+  "email": "",
+  "phone": "+2347034034456"
+}
+
+If location cannot be determined, leave it blank.
+
+Never return an entire referee as a single string.
 `;
 
 console.log(
