@@ -2588,6 +2588,9 @@ const referenceText = buildReferenceText(
   rawInput.reference_details
 );
 
+console.log("REFERENCE TEXT:");
+console.log(referenceText);
+
     const renderData = {
       FULL_NAME: data.full_name || "",
       CONTACT_LINE: buildContactLine(data) || "",
