@@ -48,9 +48,8 @@ const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 const NODE_ENV = process.env.NODE_ENV || "development";
 
 function getTemplatePath(candidateLevel, experienceCount) {
-  const level = safeString(candidateLevel).toLowerCase();
 
-  if (level === "executive candidate") {
+  if (candidateLevel === "executive candidate") {
     return path.join(
       process.cwd(),
       "templates",
@@ -58,16 +57,18 @@ function getTemplatePath(candidateLevel, experienceCount) {
     );
   }
 
-  const isProfessional =
-    level === "professional candidate" &&
-    experienceCount >= 3;
+  if (candidateLevel === "professional candidate") {
+    return path.join(
+      process.cwd(),
+      "templates",
+      "template_professional.docx"
+    );
+  }
 
   return path.join(
     process.cwd(),
     "templates",
-    isProfessional
-      ? "template_professional.docx"
-      : "cv-template.docx"
+    "cv-template.docx"
   );
 }
 
@@ -2229,9 +2230,12 @@ console.dir(
 );
 
 const templatePath = getTemplatePath(
-  requestBody?.candidate_level,
-  rawInput.experience.length
+  requestBody?.candidate_level
 );
+
+console.log("CANDIDATE LEVEL:", requestBody?.candidate_level);
+console.log("EXPERIENCE COUNT:", rawInput.experience.length);
+console.log("TEMPLATE PATH:", templatePath);
   
 if (!ensureTemplateExists(templatePath)) {
   return res.status(500).json({
@@ -2525,8 +2529,13 @@ console.log(referenceText);
 
     let buffer;
     try {
-  const templatePath = getTemplatePath(
-  requestBody?.candidate_level,
+  const candidateLevel =
+  (requestBody?.candidate_level || "")
+    .trim()
+    .toLowerCase();
+
+const templatePath = getTemplatePath(
+  candidateLevel,
   rawInput.experience.length
 );
 
