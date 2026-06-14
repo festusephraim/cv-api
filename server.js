@@ -2318,6 +2318,44 @@ EXTRACTION RULES:
 - Do not invent dates.
 - If a date is missing, leave it blank.
 - If information exists in the uploaded CV but not in the form, use the uploaded CV.
+SECTION PRESERVATION RULE
+
+When revamping an uploaded CV:
+
+Do not remove existing CV sections simply because they are not required by a standard resume format.
+
+If the uploaded CV contains:
+- Professional Strengths
+- Key Achievements
+- Selected Achievements
+- Career Highlights
+- Professional Memberships
+- Technical Skills
+- Software Proficiency
+- Target Roles
+- Awards
+- Languages
+- Leadership Experience
+- Volunteer Experience
+- Research
+- Publications
+- Training
+
+preserve them by placing them into extra_sections when no dedicated schema field exists.
+
+ACHIEVEMENT PRESERVATION RULE
+
+If achievements appear under a specific employment record, preserve them within that employment record.
+
+Do not move role-specific achievements into extra_sections.
+
+Role achievements should remain attached to the relevant position and should be incorporated into the experience content where appropriate.
+
+Only place achievements in extra_sections when they are presented as a standalone section in the uploaded CV and are not tied to a specific role.
+
+The objective is professional improvement, not content reduction.
+
+Prefer preserving and restructuring information rather than discarding it.
 
 DATE PRESERVATION RULES:
 
