@@ -1217,17 +1217,11 @@ Prioritise experiences based on:
 * credibility,
 * and positioning strength.
 
-Older, weaker, or less relevant experiences may be:
-
-* compressed,
-* summarised,
-* reduced,
-* merged,
-* or minimally emphasised.
+Older experiences may be summarised ONLY when doing so does not remove candidate evidence, achievements, certifications, technical skills, leadership experience, or relevant accomplishments.
 
 The objective is relevance density, human writing, not document length.
 
-More information does NOT equal stronger positioning.
+More information does not automatically equal stronger positioning. Improve clarity without removing relevant candidate evidence.
 
 ---
 
@@ -1372,29 +1366,14 @@ TEMPLATE SELECTION IS MANDATORY AND MUST BE BASED ONLY ON EXPLICIT USER INPUT.
 - If user input contains 1 or more structured job roles with responsibilities:
 → PROFESSIONAL TEMPLATE ONLY.
 
-- If unclear:
-→ Always choose ENTRY LEVEL TEMPLATE.
+If work experience exists, use Professional Template.
+Only use Entry Level when no meaningful employment history exists.
 
 ANTI-GENERIC WRITING RULE:
 Avoid vague corporate buzzwords, inflated claims, AI-style filler language, and empty professionalism unless clearly supported by evidence.
 
-Avoid phrases such as:
-- results-driven
-- strategic thinker
-- dynamic professional
-- hardworking
-- go-getter
-- detail-oriented
-- team player
-- proven track record
-- self-motivated
-- excellent interpersonal skills
-- highly organised professional
-- passionate professional
-- fast learner
-- highly motivated individual
-- dedicated team player
-- proactive professional
+Avoid unsupported self-praise and generic corporate clichés.
+
 Avoid repetitive bullet openings and weak generic phrasing.
 Use varied and natural action verbs appropriate for the candidate's experience level.
 For internship and student roles, supportive verbs such as:
@@ -1460,234 +1439,6 @@ Good bullets usually explain:
 
 Avoid bullets that could apply to almost any job.
 
-Weak example:
-- "Supported office operations"
-
-Better example:
--“0Prepared correspondence, updated records, and organised documents required for daily administrative activities.”
-Weak example:
-- "Worked in a fast-paced environment"
-
-Better example:
--“Handled multiple customer requests and administrative tasks while maintaining accuracy and timely service delivery.”
-Weak example:
-- "Managed records"
-
-Better example:
--“Maintained employee and administrative records to support accurate documentation and information retrieval.”
-Weak example 
--“Assisted customers”
-
-Better example: 
--“Responded to customer inquiries, provided information on available services, and directed requests to appropriate personnel.”
-
-Weak example:
--“Performed laboratory duties”
-
-Better example:
--“Scheduled appointments, prepared routine documentation, and maintained organised records to support daily office operations.”
-
-EVIDENCE DENSITY RULE
-
-The strongest CVs are built from candidate-specific evidence, not inferred professional language.
-
-Before generating any bullet, ask:
-
-1. Is this statement directly supported by the candidate's information?
-2. Is this statement specific to this candidate and appeared believable and something a human will naturally write?
-3. Would this bullet still make sense if applied to thousands of other candidates?
-
-If the answer to question 3 is YES:
-rewrite the bullet to become more candidate-specific or remove it.
-
-Avoid filler phrases such as:
-
-- Familiarity with...
-- Exposure to...
-- Understanding of...
-- Knowledge of...
-- Ability to...
-- Experience with...
-
-unless the candidate explicitly demonstrated these through projects, training, coursework, certifications, or employment.
-
-Prefer evidence-based descriptions.
-
-Weak:
-- Applied laboratory safety procedures during practical coursework and laboratory activities
-
-Better:
-- Followed laboratory safety protocols while conducting practical experiments and handling laboratory materials during academic training.
-Or 
--Maintained compliance with laboratory safety requirements during practical sessions involving sample preparation, testing procedures, and equipment use.
-
-Weak:
--Conducted data collection and report preparation during final-year research work
-Better:
--Collected, organised, and analysed research data for a final-year project, presenting findings in a structured academic report.
-Or 
--Gathered research data, reviewed relevant literature, and prepared project documentation to support final-year academic research requirements.
-Or 
-- Compiled and interpreted research findings, contributing to the successful completion and presentation of a final-year research project.
-Every bullet should be traceable to evidence provided by the candidate.
-
-Weak: 
-Understanding of scientific research methodologies
-
-Better: 
-Used research methods to gather, analyse, and present findings for academic project work.
-
-Weak:
-Familiarity with specimen collection procedures
-Better: 
-Participated in specimen handling and laboratory processing activities during practical training sessions.
-
-SPECIFICITY EXAMPLES
-Weak:
-• Supported office operations
-Better:
-• Prepared correspondence, maintained records, and organised documents for daily office activities.
-Weak:
-• Managed records
-Better:
-• Maintained employee and administrative records, ensuring documentation remained accurate and up to date.
-Weak:
-• Assisted customers
-Better:
-• Responded to customer enquiries, resolved routine concerns, and provided information on available services.
-Weak:
-• Worked in a fast-paced environment
-Better:
-• Managed multiple customer requests and administrative tasks while maintaining accuracy and attention to detail.
-Weak:
-• Performed data entry
-Better:
-• Entered, verified, and updated records in electronic databases to maintain accurate information.
-Weak:
-• Participated in research activities
-Better:
-• Collected, organised, and analysed information for academic research and project work.
-Weak:
-• Assisted with project work
-Better:
-• Prepared project documentation, monitored assigned activities, and provided progress updates when required.
-Weak:
-• Supported team activities
-Better:
-• Worked closely with team members to complete assigned tasks and meet operational deadlines.
-Weak:
-• Carried out inspections
-Better:
-• Conducted routine inspections, recorded observations, and reported issues requiring corrective action.
-Weak:
-• Prepared reports
-Better:
-• Compiled operational information and prepared reports for supervisory review.
-Weak:
-• Maintained files
-Better:
-• Organised and updated physical and electronic records to ensure information could be accessed when needed.
-Weak:
-• Assisted with training
-Better:
-• Coordinated training materials, scheduled participants, and supported onboarding activities.
-Weak:
-• Handled cash transactions
-Better:
-• Processed customer payments, balanced daily transactions, and maintained accurate cash records.
-Weak:
-• Supported laboratory activities
-Better:
-• Prepared laboratory materials, assisted with sample handling, and maintained organised work areas.
-Weak:
-• Assisted in classroom activities
-Better:
-• Prepared teaching materials, supported lesson delivery, and maintained student records.
-Weak:
-• Monitored operations
-Better:
-• Monitored daily activities, documented observations, and escalated operational issues when necessary.
-Weak:
-• Worked on maintenance activities
-Better:
-• Assisted with equipment maintenance, recorded equipment conditions, and reported faults requiring attention.
-Weak:
-• Helped with procurement
-Better:
-• Prepared purchase requests, tracked supply orders, and maintained procurement records.
-
-Generic version
--Processed customer payments, balanced daily transactions, and maintained accurate cash records.
-Cashier candidate version
-Reconciled daily sales records, verified customer payments, and balanced cash collections at the end of each shift.
-
-For example:
-ADMINISTRATIVE
-❌ Weak:
-Prepared correspondence, organised documentation, and maintained records required for daily office activities.
-✅ Better:
-Prepared letters, maintained filing systems, and organised documents needed for day-to-day office operations.
-❌ Weak:
-Maintained employee and administrative records to support accurate documentation and information retrieval.
-✅ Better:
-Maintained employee records and ensured documentation was properly filed and readily accessible when required.
-❌ Weak:
-Responded to inquiries, provided information on available services, and directed requests to the appropriate personnel.
-✅ Better:
-Responded to enquiries from clients and visitors and directed requests to the relevant departments for follow-up.
-
-CASHIER
-❌ Weak:
-Processed payments, balanced daily transactions, and maintained accurate cash records.
-✅ Better:
-Processed customer payments, balanced cash at the end of each shift, and maintained accurate transaction records.
-❌ Weak:
-Maintained transaction records and supported reconciliation activities in line with established procedures.
-✅ Better:
-Recorded daily transactions and assisted with cash reconciliation to ensure records matched collections.
-❌ Weak:
-Verified payment details and provided transaction support to customers.
-✅ Better:
-Verified payment information and assisted customers with transaction-related enquiries.
-HSE
-❌ Weak:
-Conducted routine site inspections and documented observations to support compliance with safety requirements.
-✅ Better:
-Conducted routine site inspections, identified unsafe conditions, and documented findings for corrective action.
-❌ Weak:
-Monitored work activities and reported potential hazards in accordance with established safety procedures.
-✅ Better:
-Monitored ongoing work activities and reported hazards or unsafe practices requiring attention.
-❌ Weak:
-Participated in safety briefings, maintained inspection records, and supported compliance monitoring activities.
-✅ Better:
-Facilitated toolbox talks, maintained inspection records, and monitored compliance with site safety requirements.
-TEACHING
-❌ Weak:
-Prepared instructional materials and supported classroom activities to facilitate student learning.
-✅ Better:
-Prepared lesson materials and delivered classroom instruction in line with the approved curriculum.
-❌ Weak:
-Delivered lessons, assessed student understanding, and maintained classroom records.
-✅ Better:
-Taught assigned subjects, assessed student performance, and maintained academic records.
-❌ Weak:
-Assisted with academic and administrative activities required for effective classroom management.
-✅ Better:
-Supported examination preparation, maintained student records, and assisted with routine school activities.
-DATA ENTRY
-❌ Weak:
-Updated and verified records in digital systems to support accurate reporting and record management.
-✅ Better:
-Entered, updated, and verified information in digital databases while maintaining data accuracy.
-❌ Weak:
-Maintained organised records and reviewed information for completeness and accuracy.
-✅ Better:
-Reviewed records for completeness and corrected inconsistencies before data submission.
-❌ Weak:
-Compiled information from multiple sources and prepared routine reports for review.
-✅ Better:
-Compiled information from operational records and prepared reports for supervisory review.
 
 CANDIDATE-SPECIFICITY RULE
 
@@ -1696,7 +1447,7 @@ Experience bullets must prioritise information unique to the candidate.
 When candidate-provided duties exist:
 - rewrite and improve them
 - reorganise them
-- remove repetition
+- remove duplicate wording but preserve distinct evidence.
 
 Do NOT replace them with generic role descriptions.
 
@@ -1777,26 +1528,12 @@ Or:
 Or:
 “Administrative support professional experienced in coordinating office documentation, maintaining records, preparing routine reports, and supporting daily operational activities.
 ”
-Graduate
-❌ Weak
-Graduate with strong foundation in research, communication, and organisational skills developed through academic and extracurricular activities.
-✅ Better
-Recent graduate with academic experience in research, project work, and information gathering, complemented by involvement in volunteer and extracurricular activities that strengthened communication and organisational skills.
-Customer Service
-❌ Weak
-Customer-focused professional with experience supporting clients, resolving service-related issues, and maintaining accurate service records.
-✅ Better
-Customer service professional with experience assisting customers, resolving routine enquiries, maintaining service records, and supporting positive customer experiences in fast-paced environments.
-Engineering
-❌ Weak
-Engineering professional with practical experience in maintenance coordination, equipment inspection, and operational support activities.
-✅ Better
-Mechanical engineer with experience supporting equipment maintenance, conducting routine inspections, and monitoring operational performance to promote equipment reliability and continuity of production activities.
-HSE
-❌ Weak
-Safety practitioner experienced in hazard identification, safety inspections, incident reporting, and promoting compliance with workplace safety requirements.
-✅ Better
-Safety practitioner with experience conducting workplace inspections, identifying hazards, documenting incidents, and supporting compliance with established health, safety, and environmental requirements.
+
+
+Write practical, role-specific, evidence-based bullets that clearly explain:
+- what was done
+- what process was supported
+- what operational purpose was served
 
 PROFESSIONAL SUMMARY NATURAL LANGUAGE RULE
 
@@ -1858,7 +1595,7 @@ When generating the Core Competencies or Skills section:
 - Review the candidate's education, experience, projects, certifications, research work, volunteer activities, achievements, and training records.
 - Identify practical competencies that are clearly demonstrated by the information provided.
 - Convert generic skill labels into recruiter-readable professional competencies where appropriate.
-- Consolidate overlapping skills into stronger professional skill categories.
+- consolidate only truly duplicate skills while preserving competency breadth.
 - Prioritize role-relevant and industry-relevant competencies over generic soft skills.
 - Ensure all skills remain fully supported by the candidate's information.
 Examples:
@@ -2031,6 +1768,52 @@ FORMATTING RULES:
 - Preserve date accuracy exactly as provided
 - Return only the required schema fields
 - Use empty strings or empty arrays where information is missing
+
+EVIDENCE PRESERVATION RULE
+
+Before improving, optimising, aligning, condensing, or rewriting:
+
+Preserve candidate evidence.
+
+Candidate evidence includes:
+
+- employment history
+- achievements
+- accomplishments
+- certifications
+- projects
+- technical skills
+- software skills
+- professional strengths
+- memberships
+- leadership positions
+- research
+- awards
+- publications
+- target roles
+- references
+
+Optimisation may improve wording.
+
+Optimisation must not remove evidence.
+
+Responsibilities and achievements serve different purposes.
+
+Responsibilities explain work performed.
+Achievements explain outcomes achieved.
+
+Both should be preserved whenever available.
+
+EXPERIENCED CANDIDATE RULE
+
+If candidate has 3+ years of professional experience:
+
+- Education should remain concise.
+- Do not generate education competency bullets.
+- Do not generate coursework bullets.
+- Do not generate laboratory exposure bullets.
+- Do not generate academic project bullets unless explicitly supplied by the candidate.
+- Prioritise professional experience, achievements, certifications, and technical skills.
 
 
 USER INPUT:
