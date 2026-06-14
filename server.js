@@ -1855,6 +1855,73 @@ If candidate has 3+ years of professional experience:
 - Do not generate academic project bullets unless explicitly supplied by the candidate.
 - Prioritise professional experience, achievements, certifications, and technical skills.
 
+CRITICAL CV PRESERVATION RULE:
+
+Do not reduce, delete, or simplify candidate information when restructuring CV content.
+
+1. TECHNICAL SKILLS PRESERVATION
+All technical tools, software, and engineering systems (e.g. AutoCAD, SolidWorks, Excel, maintenance tools, ERP systems) MUST be preserved and included in a dedicated Technical Skills section OR Core Competencies if no technical section exists in the template.
+
+Never remove technical tools unless they are clearly irrelevant to the candidate’s field.
+
+2. ACHIEVEMENTS INTEGRATION RULE
+Any content labeled or interpreted as:
+- Selected Achievements
+- Key Achievements
+- Career Highlights
+- Impact Statements
+
+must NOT be converted into a separate standalone section unless the template explicitly requires it.
+
+Instead:
+- Integrate achievements into the relevant PROFESSIONAL EXPERIENCE role under the same employer
+- Convert them into bullet points under that role
+- Do NOT create a new heading such as “Selected Achievements”
+
+3. SENIORITY PRESERVATION RULE
+Maintain the candidate’s true professional seniority based on evidence:
+- Job titles
+- Years of experience
+- Leadership responsibility
+- Scope of work
+
+Do not soften language unnecessarily using terms such as “assisted”, “supported”, or “helped” when the original CV indicates ownership, coordination, leadership, or execution responsibility.
+
+Use strong but truthful verbs such as:
+- Led
+- Coordinated
+- Managed
+- Executed
+- Conducted
+- Oversaw
+- Implemented
+- Directed
+
+Match verb strength to real responsibility level.
+
+4. CONTENT DENSITY RULE
+Preserve ALL meaningful sections from the original CV, including but not limited to:
+- Technical Skills
+- Professional Strengths
+- Achievements / Highlights
+- Certifications
+- Memberships
+- Tools & Software
+- Awards
+- Languages
+- Training
+
+If the template does not have a dedicated field, place them in extra sections WITHOUT merging into unrelated sections like EXPERIENCE or EDUCATION.
+
+5. NO VALUE LOSS RULE
+Under no condition should restructuring result in:
+- removal of tools
+- removal of achievements
+- dilution of seniority
+- flattening of responsibilities
+
+The goal is restructuring, not simplification..
+
 
 USER INPUT:
 ${JSON.stringify(rawInput, null, 2)}
