@@ -980,8 +980,7 @@ IMPORTANT CONTEXT:
 ENTRY LEVEL TEMPLATE
 Use this when:
 - student, intern, SIWES, NYSC, fresh graduate
-- limited or no formal work experience
-- experience is mostly academic, volunteer, training, or project-based
+- Has no formal work experience
 
 PROFESSIONAL TEMPLATE
 Use this when:
@@ -1370,7 +1369,7 @@ TEMPLATE SELECTION IS MANDATORY AND MUST BE BASED ONLY ON EXPLICIT USER INPUT.
 - If user input does not clearly show employment history:
 → Default to ENTRY LEVEL TEMPLATE.
 
-- If user input contains 2 or more structured job roles with responsibilities:
+- If user input contains 1 or more structured job roles with responsibilities:
 → PROFESSIONAL TEMPLATE ONLY.
 
 - If unclear:
