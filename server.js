@@ -1240,6 +1240,7 @@ Not all experiences carry equal strategic value.
 
 Prioritise experiences based on:
 
+* Selected Achievements - USE ALL THE SELECTED ACHIEVEMENTS BEFORE ADDING OTHER RESPONSIBILITIES IF NECESSARY 
 * relevance to target role,
 * operational contribution,
 * continuity,
@@ -1729,8 +1730,6 @@ ADDITIONAL INFORMATION RULE
    - Participated in student-led laboratory awareness campaigns
    - Supported administrative tasks during outreach programmes
 - Rules:
-- Each line must start with a strong action verb:
-- Assisted, Supported, Participated, Coordinated, Organized, Documented
 - Each bullet must describe a real task/activity
 - No storytelling or explanations
 - No “during which”, “where”, or descriptive sentences
@@ -2360,7 +2359,7 @@ If the uploaded CV contains research projects, dissertations, publications, thes
 Do not discard research topics even if they are not professional projects.
 
 Preserve software skills, computer skills and technical tools.
-Examples include Microsoft Word, Excel, PowerPoint, AutoCAD, SAP, MATLAB, Python and similar tools.
+Examples include Microsoft Word, Excel, PowerPoint, AutoCAD, SAP, MATLAB, SolidWorks (2D & 3D Design), Python and similar tools.
 Store them under either Skills or an extra section titled "Software Proficiency".
 For education, preserve the full degree title, field of study, institution name, country and graduation year whenever available.
 Do not shorten degree names if the original CV provides more detail.
