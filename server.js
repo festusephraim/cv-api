@@ -2338,52 +2338,89 @@ UPLOADED CV CONTENT:
 
 ${extractedCvText}
 
-CRITICAL INSTRUCTIONS:
+SYSTEM OF TRUTH PRIORITY (MANDATORY HIERARCHY)
 
-The uploaded CV is the PRIMARY source of truth.
+The CV generation system MUST follow this strict priority order:
 
-If the uploaded CV contains work experience, education, certifications, trainings, memberships, leadership positions, projects, achievements, research, publications, awards, references, languages, competencies or any other career information, extract and use them.
+PRIORITY 1 — UPLOADED CV CONTENT (ABSOLUTE SOURCE OF TRUTH)
 
-Do NOT ignore information simply because it is not present in the form submission.
+The uploaded CV is the primary and overriding source of all career information.
 
-Do NOT reduce the candidate's experience level if the uploaded CV shows substantial professional experience.
+It overrides:
 
-Preserve as many valid positions, certifications, trainings, projects and education records as are present in the uploaded CV.
+form input
+candidate_level assumptions
+inferred experience level
+template assumptions
+missing-data logic
 
-If the uploaded CV contains references, extract them and populate reference_details.
+If a fact exists in the uploaded CV, it MUST be used.
 
-If the uploaded CV contains leadership positions, memberships, research, languages, workshops, trainings or additional professional information, include them in extra_sections.
+No exception.
 
-If the uploaded CV contains research projects, dissertations, publications, thesis topics or academic research work etc, preserve them in extra_sections under the title "Research".
+PRIORITY 2 — INTERNAL CONSISTENCY RULES
 
-Do not discard research topics even if they are not professional projects.
+Only used to:
 
-Preserve software skills, computer skills and technical tools.
-Examples include Microsoft Word, Excel, PowerPoint, AutoCAD, SAP, MATLAB, SolidWorks (2D & 3D Design), Python and similar tools.
-Store them under either Skills or an extra section titled "Software Proficiency".
-For education, preserve the full degree title, field of study, institution name, country and graduation year whenever available.
-Do not shorten degree names if the original CV provides more detail.
+restructure
+reword
+format
+NOT to remove or reduce uploaded content.
+PRIORITY 3 — FORM INPUT DATA
 
-Preserve all leadership positions, professional memberships, awards, honours and affiliations found in the uploaded CV.
-Store them as separate extra_sections rather than discarding them.
+Form input can ONLY:
 
-Only use form data to supplement or fill gaps where the uploaded CV does not provide information.
+fill missing fields
+refine unclear entries
+add supplementary detail
 
-The uploaded CV should override conflicting information from the form whenever professional history is more complete in the uploaded CV.
+Form input must NEVER:
 
-EXTRACTION RULES:
+replace uploaded CV facts
+override employment history
+reduce number of roles
+simplify seniority
+PRIORITY 4 — TEMPLATE / candidate_level
 
-- Preserve every employment record found in the uploaded CV.
-- Preserve every certification found in the uploaded CV.
-- Preserve all research topics.
-- Preserve all professional memberships.
-- Preserve all leadership positions.
-- Preserve all software and computer skills.
-- Preserve all references if present.
-- Do not merge jobs together.
-- Do not invent dates.
-- If a date is missing, leave it blank.
-- If information exists in the uploaded CV but not in the form, use the uploaded CV.
+Template rules apply ONLY when uploaded CV does not contain conflicting structured career data.
+
+If uploaded CV shows experience → ALWAYS treat as professional-level regardless of candidate_level.
+
+candidate_level is ignored if it conflicts with uploaded CV evidence.
+
+MANDATORY FULL EXTRACTION REQUIREMENT
+
+You MUST extract and preserve ALL of the following from uploaded CV:
+
+Every job role (no merging allowed)
+Every organization
+Every date range (exact preservation)
+Every certification
+Every training program
+Every project
+Every membership
+Every leadership role
+Every award
+Every publication or research entry
+Every reference/referee entry
+Every technical/software skill
+Every language entry
+
+If present in uploaded CV → it MUST appear in final output.
+
+🚫 FORBIDDEN ACTIONS (HARD BLOCKS)
+
+You MUST NOT:
+
+Merge multiple jobs into one role
+Remove roles due to “lack of relevance”
+Reduce number of employment entries
+Downgrade seniority level from uploaded CV
+Replace uploaded CV content with inferred content
+Convert detailed experience into generic summaries
+Replace missing form data with assumptions
+Delete sections because schema does not explicitly include them
+
 SECTION PRESERVATION RULE
 
 When revamping an uploaded CV:
@@ -2409,6 +2446,18 @@ If the uploaded CV contains:
 
 preserve them by placing them into extra_sections when no dedicated schema field exists.
 
+EXTRA CONTENT PRESERVATION RULE
+
+If a section exists in uploaded CV but schema has no field:
+
+Preserve it exactly
+Store it in extra_sections
+DO NOT summarise it
+DO NOT compress it
+DO NOT merge it with other sections
+
+Each section must remain structurally distinct.
+
 ACHIEVEMENT PRESERVATION RULE
 
 If achievements appear under a specific employment record, preserve them within that employment record.
@@ -2428,11 +2477,13 @@ DATE PRESERVATION RULES:
 When preserving employment history from the uploaded CV:
 
 - Never invent employment dates.
+- Never modify, interpret, or “clean” dates beyond formatting consistency
 - Never assume a position is current unless the uploaded CV explicitly states "Present", "Current", or an ongoing date range.
 - If only an end year is available, preserve only the end year.
 - If both start and end dates are missing, leave both blank.
 - Do not output "Present" when no start date exists.
 - Do not create date ranges using guessed dates.
+
 EMPLOYMENT QUALITY RULES:
 
 Before returning employment records:
